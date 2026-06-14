@@ -1,0 +1,15 @@
+[
+  {
+    "id": "1934f7fd-091a-4cbc-a0f3-6a4424ea5735",
+    "title": "Test Entry",
+    "description": "",
+    "content": "Test content",
+    "system": "TestSys",
+    "tags": [],
+    "createdAt": "2026-06-14T02:54:06.3057741Z",
+    "updatedAt": "2026-06-14T02:54:06.3057873Z",
+    "author": "TestUser",
+    "type": 0,
+    "status": "Draft"
+  }
+]

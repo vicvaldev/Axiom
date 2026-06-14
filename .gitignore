@@ -1,0 +1,50 @@
+# .NET build artifacts
+bin/
+obj/
+**/bin/
+**/obj/
+*.dll
+*.exe
+*.pdb
+*.so
+*.dylib
+
+# NuGet packages
+*.nupkg
+packages/
+
+# Visual Studio
+.vs/
+*.csproj.user
+*.csproj.user.*
+*.sln.docstates
+*.suo
+*.user
+*.userprefs
+*.userosscache
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# Visual Studio Code
+.vscode/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Logs
+*.log
+
+# Coverage
+*.coverage
+*.coveragexml
+coverage/

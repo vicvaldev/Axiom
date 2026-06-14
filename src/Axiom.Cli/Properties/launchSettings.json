@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "Axiom.Cli": {
+      "commandName": "Project"
+    },
+    "WSL": {
+      "commandName": "WSL",
+      "distributionName": "Ubuntu"
+    }
+  }
+}

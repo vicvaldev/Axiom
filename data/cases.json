@@ -1,0 +1,14 @@
+[
+  {
+    "id": "9349bf98-f03d-4767-8f1d-caffcaead29d",
+    "ritmId": null,
+    "changeId": null,
+    "system": "CRM",
+    "problem": "Login failure",
+    "analysis": "Token expired",
+    "resolution": "Reset token",
+    "lessonsLearned": "",
+    "createdAt": "2026-06-14T02:54:21.8810686Z",
+    "status": 0
+  }
+]

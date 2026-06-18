@@ -48,3 +48,6 @@ $RECYCLE.BIN/
 *.coverage
 *.coveragexml
 coverage/
+
+# opencode\
+.opencode/

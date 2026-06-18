@@ -9,8 +9,14 @@ using NSubstitute;
 
 namespace Axiom.Application.Tests.Handlers;
 
+/// <summary>
+/// Unit tests for the <see cref="ListKnowledgeHandler"/> class.
+/// </summary>
 public class ListKnowledgeHandlerTests
 {
+    /// <summary>
+    /// Verifies that the handler returns all entries from the repository.
+    /// </summary>
     [Fact]
     public async Task Handle_ShouldReturnAllEntries()
     {

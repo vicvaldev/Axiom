@@ -5,8 +5,14 @@ using FluentAssertions;
 
 namespace Axiom.Domain.Tests.Entities;
 
+/// <summary>
+/// Unit tests for the <see cref="KnowledgeEntry"/> entity, covering construction, default values, and updates.
+/// </summary>
 public class KnowledgeEntryTests
 {
+    /// <summary>
+    /// Verifies that the constructor correctly initializes all properties when valid data is provided.
+    /// </summary>
     [Fact]
     public void Constructor_WithValidData_ShouldCreateEntry()
     {
@@ -32,6 +38,9 @@ public class KnowledgeEntryTests
         entry.UpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
 
+    /// <summary>
+    /// Verifies that the constructor throws <see cref="ArgumentException"/> when title is empty.
+    /// </summary>
     [Fact]
     public void Constructor_WithEmptyTitle_ShouldThrow()
     {
@@ -40,6 +49,9 @@ public class KnowledgeEntryTests
         act.Should().Throw<ArgumentException>().WithParameterName("title");
     }
 
+    /// <summary>
+    /// Verifies that the constructor throws <see cref="ArgumentException"/> when content is empty.
+    /// </summary>
     [Fact]
     public void Constructor_WithEmptyContent_ShouldThrow()
     {
@@ -48,6 +60,9 @@ public class KnowledgeEntryTests
         act.Should().Throw<ArgumentException>().WithParameterName("content");
     }
 
+    /// <summary>
+    /// Verifies that passing null tags defaults to an empty list.
+    /// </summary>
     [Fact]
     public void Constructor_WithNullTags_ShouldDefaultToEmpty()
     {
@@ -56,6 +71,9 @@ public class KnowledgeEntryTests
         entry.Tags.Should().NotBeNull().And.BeEmpty();
     }
 
+    /// <summary>
+    /// Verifies that passing null description defaults to an empty string.
+    /// </summary>
     [Fact]
     public void Constructor_WithNullDescription_ShouldDefaultToEmpty()
     {
@@ -64,6 +82,9 @@ public class KnowledgeEntryTests
         entry.Description.Should().BeEmpty();
     }
 
+    /// <summary>
+    /// Verifies that passing null author defaults to "unknown".
+    /// </summary>
     [Fact]
     public void Constructor_WithNullAuthor_ShouldDefaultToUnknown()
     {
@@ -72,6 +93,9 @@ public class KnowledgeEntryTests
         entry.Author.Should().Be("unknown");
     }
 
+    /// <summary>
+    /// Verifies that <see cref="KnowledgeEntry.Update"/> correctly modifies all modifiable properties.
+    /// </summary>
     [Fact]
     public void Update_ShouldModifyProperties()
     {
@@ -87,6 +111,9 @@ public class KnowledgeEntryTests
         entry.UpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
 
+    /// <summary>
+    /// Verifies that <see cref="KnowledgeEntry.Update"/> throws <see cref="ArgumentException"/> when title is empty.
+    /// </summary>
     [Fact]
     public void Update_WithEmptyTitle_ShouldThrow()
     {

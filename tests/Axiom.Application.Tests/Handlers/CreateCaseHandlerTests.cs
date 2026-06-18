@@ -7,8 +7,14 @@ using NSubstitute;
 
 namespace Axiom.Application.Tests.Handlers;
 
+/// <summary>
+/// Unit tests for the <see cref="CreateCaseHandler"/> class.
+/// </summary>
 public class CreateCaseHandlerTests
 {
+    /// <summary>
+    /// Verifies that the handler creates a case record and persists it via the repository.
+    /// </summary>
     [Fact]
     public async Task Handle_ShouldCreateAndSaveCase()
     {

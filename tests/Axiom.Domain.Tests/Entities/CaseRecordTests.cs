@@ -5,8 +5,14 @@ using FluentAssertions;
 
 namespace Axiom.Domain.Tests.Entities;
 
+/// <summary>
+/// Unit tests for the <see cref="CaseRecord"/> entity, covering construction and status updates.
+/// </summary>
 public class CaseRecordTests
 {
+    /// <summary>
+    /// Verifies that the constructor correctly initializes all properties when valid data is provided.
+    /// </summary>
     [Fact]
     public void Constructor_WithValidData_ShouldCreate()
     {
@@ -30,6 +36,9 @@ public class CaseRecordTests
         record.Status.Should().Be(CaseStatus.Open);
     }
 
+    /// <summary>
+    /// Verifies that the constructor throws <see cref="ArgumentException"/> when problem is empty.
+    /// </summary>
     [Fact]
     public void Constructor_WithEmptyProblem_ShouldThrow()
     {
@@ -38,6 +47,9 @@ public class CaseRecordTests
         act.Should().Throw<ArgumentException>().WithParameterName("problem");
     }
 
+    /// <summary>
+    /// Verifies that <see cref="CaseRecord.UpdateStatus"/> correctly changes the status.
+    /// </summary>
     [Fact]
     public void UpdateStatus_ShouldChangeStatus()
     {

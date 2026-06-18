@@ -9,8 +9,14 @@ using NSubstitute;
 
 namespace Axiom.Application.Tests.Handlers;
 
+/// <summary>
+/// Unit tests for the <see cref="CreateKnowledgeHandler"/> class.
+/// </summary>
 public class CreateKnowledgeHandlerTests
 {
+    /// <summary>
+    /// Verifies that the handler creates a knowledge entry and persists it via the repository.
+    /// </summary>
     [Fact]
     public async Task Handle_ShouldCreateAndSaveEntry()
     {

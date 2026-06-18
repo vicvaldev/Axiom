@@ -10,12 +10,19 @@ using NSubstitute;
 
 namespace Axiom.Integration.Tests;
 
+/// <summary>
+/// Integration tests for the JSON-based repository implementations.
+/// Verifies round-trip persistence, searching, and deletion using temporary file storage.
+/// </summary>
 public class JsonRepositoryTests : IDisposable
 {
     private readonly string _tempDir;
     private readonly IKnowledgeRepository _knowledgeRepo;
     private readonly ICaseRepository _caseRepo;
 
+    /// <summary>
+    /// Initializes a new test instance with a temporary directory and fresh repository instances.
+    /// </summary>
     public JsonRepositoryTests()
     {
         _tempDir = Path.Combine(Path.GetTempPath(), $"axiom_test_{Guid.NewGuid()}");
@@ -35,6 +42,9 @@ public class JsonRepositoryTests : IDisposable
         _caseRepo = new JsonCaseRepository(options, loggerCase);
     }
 
+    /// <summary>
+    /// Verifies that a knowledge entry can be saved and then retrieved with all properties preserved.
+    /// </summary>
     [Fact]
     public async Task KnowledgeRepository_ShouldRoundTripEntry()
     {
@@ -59,6 +69,9 @@ public class JsonRepositoryTests : IDisposable
         loaded.Tags.Should().Contain(["integ", "test"]);
     }
 
+    /// <summary>
+    /// Verifies that the knowledge repository can search entries by keyword matching title, content, and tags.
+    /// </summary>
     [Fact]
     public async Task KnowledgeRepository_ShouldSearchEntries()
     {
@@ -76,6 +89,9 @@ public class JsonRepositoryTests : IDisposable
         results.Should().Contain(e => e.Id == entry.Id);
     }
 
+    /// <summary>
+    /// Verifies that a case record can be saved and then retrieved with all properties preserved.
+    /// </summary>
     [Fact]
     public async Task CaseRepository_ShouldRoundTripRecord()
     {
@@ -99,6 +115,9 @@ public class JsonRepositoryTests : IDisposable
         loaded.ChangeId.Should().Be("CHG888");
     }
 
+    /// <summary>
+    /// Verifies that a knowledge entry can be deleted and subsequent retrieval returns null.
+    /// </summary>
     [Fact]
     public async Task KnowledgeRepository_ShouldDeleteEntry()
     {
@@ -114,6 +133,9 @@ public class JsonRepositoryTests : IDisposable
         loaded.Should().BeNull();
     }
 
+    /// <summary>
+    /// Cleans up the temporary directory used during the test.
+    /// </summary>
     public void Dispose()
     {
         if (Directory.Exists(_tempDir))

@@ -6,6 +6,10 @@ using Microsoft.Extensions.Options;
 
 namespace Axiom.Infrastructure.Data;
 
+/// <summary>
+/// Implements <see cref="ICaseRepository"/> using a JSON file as the backing store.
+/// Each operation reads the full file, mutates the in-memory list, and writes it back.
+/// </summary>
 public class JsonCaseRepository : ICaseRepository
 {
     private readonly string _filePath;
@@ -16,12 +20,20 @@ public class JsonCaseRepository : ICaseRepository
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="JsonCaseRepository"/> class.
+    /// </summary>
+    /// <param name="options">The JSON data options containing the file path for case records.</param>
+    /// <param name="logger">The logger for recording errors and operations.</param>
     public JsonCaseRepository(IOptions<JsonDataOptions> options, ILogger<JsonCaseRepository> logger)
     {
         _filePath = options.Value.CasesFilePath;
         _logger = logger;
     }
 
+    /// <summary>Saves a case record to the JSON file, creating or updating as needed.</summary>
+    /// <param name="record">The case record to persist.</param>
+    /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
     public async Task SaveAsync(CaseRecord record, CancellationToken cancellationToken = default)
     {
         var records = await LoadAllAsync(cancellationToken);
@@ -34,12 +46,19 @@ public class JsonCaseRepository : ICaseRepository
         await SaveAllAsync(records, cancellationToken);
     }
 
+    /// <summary>Retrieves a case record by its unique identifier.</summary>
+    /// <param name="id">The unique identifier of the case record.</param>
+    /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
+    /// <returns>The matching case record, or <c>null</c> if not found.</returns>
     public async Task<CaseRecord?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var records = await LoadAllAsync(cancellationToken);
         return records.FirstOrDefault(r => r.Id == id);
     }
 
+    /// <summary>Retrieves all case records from the JSON file.</summary>
+    /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
+    /// <returns>A collection of all case records.</returns>
     public async Task<IEnumerable<CaseRecord>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await LoadAllAsync(cancellationToken);

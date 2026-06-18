@@ -6,6 +6,10 @@ using Microsoft.Extensions.Options;
 
 namespace Axiom.Infrastructure.Data;
 
+/// <summary>
+/// Implements <see cref="IKnowledgeRepository"/> using a JSON file as the backing store.
+/// Each operation reads the full file, mutates the in-memory list, and writes it back.
+/// </summary>
 public class JsonKnowledgeRepository : IKnowledgeRepository
 {
     private readonly string _filePath;
@@ -16,12 +20,20 @@ public class JsonKnowledgeRepository : IKnowledgeRepository
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="JsonKnowledgeRepository"/> class.
+    /// </summary>
+    /// <param name="options">The JSON data options containing the file path for knowledge entries.</param>
+    /// <param name="logger">The logger for recording errors and operations.</param>
     public JsonKnowledgeRepository(IOptions<JsonDataOptions> options, ILogger<JsonKnowledgeRepository> logger)
     {
         _filePath = options.Value.KnowledgeFilePath;
         _logger = logger;
     }
 
+    /// <summary>Saves a knowledge entry to the JSON file, creating or updating as needed.</summary>
+    /// <param name="entry">The knowledge entry to persist.</param>
+    /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
     public async Task SaveAsync(KnowledgeEntry entry, CancellationToken cancellationToken = default)
     {
         var entries = await LoadAllAsync(cancellationToken);
@@ -34,12 +46,20 @@ public class JsonKnowledgeRepository : IKnowledgeRepository
         await SaveAllAsync(entries, cancellationToken);
     }
 
+    /// <summary>Retrieves a knowledge entry by its unique identifier.</summary>
+    /// <param name="id">The unique identifier of the entry.</param>
+    /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
+    /// <returns>The matching entry, or <c>null</c> if not found.</returns>
     public async Task<KnowledgeEntry?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var entries = await LoadAllAsync(cancellationToken);
         return entries.FirstOrDefault(e => e.Id == id);
     }
 
+    /// <summary>Searches knowledge entries by matching the query against title, description, content, and tags.</summary>
+    /// <param name="query">The search text to match.</param>
+    /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
+    /// <returns>A collection of entries matching the search criteria.</returns>
     public async Task<IEnumerable<KnowledgeEntry>> SearchAsync(string query, CancellationToken cancellationToken = default)
     {
         var entries = await LoadAllAsync(cancellationToken);
@@ -51,11 +71,17 @@ public class JsonKnowledgeRepository : IKnowledgeRepository
             e.Tags.Any(t => t.Contains(q, StringComparison.OrdinalIgnoreCase)));
     }
 
+    /// <summary>Retrieves all knowledge entries from the JSON file.</summary>
+    /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
+    /// <returns>A collection of all knowledge entries.</returns>
     public async Task<IEnumerable<KnowledgeEntry>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await LoadAllAsync(cancellationToken);
     }
 
+    /// <summary>Deletes a knowledge entry by its unique identifier.</summary>
+    /// <param name="id">The unique identifier of the entry to delete.</param>
+    /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var entries = await LoadAllAsync(cancellationToken);

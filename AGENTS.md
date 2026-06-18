@@ -14,7 +14,7 @@ data/                — Default JSON file storage: cases.json, knowledge.json.
 ## Stack
 
 - **.NET 10** (`net10.0`) — no `global.json`, no `Directory.Build.props`
-- MediatR 14, FluentValidation 12, EF Core 10 + SQL Server
+- MediatR 12.5, FluentValidation 12, EF Core 10 + SQL Server
 - CLI: System.CommandLine 2 + Spectre.Console 0.57
 - Tests: xUnit + FluentAssertions + NSubstitute (mocks) + Coverlet (coverage)
 
@@ -62,3 +62,29 @@ dotnet run -- case show <guid>
 - Application tests mock `IKnowledgeRepository` / `ICaseRepository` with NSubstitute.
 - No `appsettings.json` or environment setup required for tests.
 - Coverage: `coverlet.collector` (already referenced, run with `dotnet test --collect:"XPlat Code Coverage"`).
+
+## Git
+
+Tienes permiso para ejecutar comandos de git para commits, push y
+auditoría. **NO puedes ejecutar `git reset`** (ninguna variante).
+
+### Flujo para commits
+
+1. `git status` + `git diff` + `git log --oneline -10` para inspeccionar.
+2. `git add <files>` para stagear solo los archivos intencionados.
+3. `git commit -m "mensaje"` con mensaje descriptivo y conciso acorde al
+   estilo del repo.
+4. `git push` cuando se solicite.
+
+### Herramientas de auditoría permitidas
+
+`git log`, `git reflog`, `git blame`, `git diff`, `git show`, `git status`.
+
+### Restricciones
+
+- No hacer `git reset` (ninguna variante: `--soft`, `--hard`, `--mixed`,
+  `HEAD~N`, etc.).
+- No hacer `git push --force` ni `git push -f`.
+- No modificar config de git, no saltar hooks, no usar `-i`.
+- No crear commits vacíos.
+- Solo commit/push cuando el usuario lo solicite explícitamente.

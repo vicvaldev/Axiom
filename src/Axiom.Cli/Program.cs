@@ -18,9 +18,12 @@ using Spectre.Console;
 /// </summary>
 var builder = Host.CreateApplicationBuilder(args);
 
+var connectionString = Environment.GetEnvironmentVariable("AXIOM_CONNECTION_STRING")
+    ?? "Server=localhost;Database=AXIOM;Integrated Security=True;TrustServerCertificate=True;";
+
 builder.Services
     .AddApplication()
-    .AddInfrastructure()
+    .AddInfrastructureEF(connectionString)
     .Configure<JsonDataOptions>(builder.Configuration.GetSection(JsonDataOptions.SectionName));
 
 var host = builder.Build();

@@ -12,6 +12,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Spectre.Console;
 
+/// <summary>
+/// Axiom CLI — KnowledgeOps and Operational Continuity Platform.
+/// Provides commands for managing knowledge entries and case records through a command-line interface.
+/// </summary>
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services
@@ -21,18 +25,33 @@ builder.Services
 
 var host = builder.Build();
 
+/// <summary>
+/// Root command for the Axiom application. All subcommands are registered under this root.
+/// </summary>
 var rootCommand = new RootCommand("Axiom - KnowledgeOps and Operational Continuity Platform");
 
-// --- knowledge create ---
+/// <summary>
+/// Defines the "knowledge" command group and its subcommands (create, list, show, search).
+/// </summary>
 var knowledgeCmd = new Command("knowledge", "Manage knowledge entries");
 
+/// <summary>
+/// Subcommand: Creates a new knowledge entry with the provided metadata and content.
+/// </summary>
 var createCmd = new Command("create", "Create a new knowledge entry");
+/// <summary>The title of the knowledge entry (required).</summary>
 var titleOpt = new Option<string>("--title") { Required = true };
+/// <summary>An optional description of the knowledge entry.</summary>
 var descOpt = new Option<string>("--description");
+/// <summary>The main body content of the knowledge entry (required).</summary>
 var contentOpt = new Option<string>("--content") { Required = true };
+/// <summary>The associated system or application name (required).</summary>
 var systemOpt = new Option<string>("--system") { Required = true };
+/// <summary>Comma-separated tags for categorization.</summary>
 var tagsOpt = new Option<string>("--tags");
+/// <summary>The author of the knowledge entry (required).</summary>
 var authorOpt = new Option<string>("--author") { Required = true };
+/// <summary>The content type. Allowed values: Documentation, Runbook, Troubleshooting, Reference, Tutorial, Other.</summary>
 var typeOpt = new Option<KnowledgeType>("--type") { Arity = new ArgumentArity(0, 1) };
 createCmd.Options.Add(titleOpt);
 createCmd.Options.Add(descOpt);
@@ -71,7 +90,9 @@ createCmd.SetAction((ParseResult result) =>
 
 knowledgeCmd.Subcommands.Add(createCmd);
 
-// --- knowledge list ---
+/// <summary>
+/// Subcommand: Lists all knowledge entries in a table format.
+/// </summary>
 var listCmd = new Command("list", "List all knowledge entries");
 listCmd.SetAction((ParseResult _) =>
 {
@@ -99,8 +120,11 @@ listCmd.SetAction((ParseResult _) =>
 
 knowledgeCmd.Subcommands.Add(listCmd);
 
-// --- knowledge show ---
+/// <summary>
+/// Subcommand: Displays detailed information for a single knowledge entry by its identifier.
+/// </summary>
 var showCmd = new Command("show", "Show knowledge entry details");
+/// <summary>The unique identifier (GUID) of the knowledge entry to display.</summary>
 var idArg = new Argument<Guid>("id");
 showCmd.Arguments.Add(idArg);
 showCmd.SetAction((ParseResult result) =>
@@ -137,8 +161,11 @@ showCmd.SetAction((ParseResult result) =>
 
 knowledgeCmd.Subcommands.Add(showCmd);
 
-// --- knowledge search ---
+/// <summary>
+/// Subcommand: Searches knowledge entries by matching text against title, description, content, and tags.
+/// </summary>
 var searchCmd = new Command("search", "Search knowledge entries");
+/// <summary>The search text used to find matching knowledge entries.</summary>
 var queryArg = new Argument<string>("query");
 searchCmd.Arguments.Add(queryArg);
 searchCmd.SetAction((ParseResult result) =>
@@ -168,16 +195,28 @@ searchCmd.SetAction((ParseResult result) =>
 knowledgeCmd.Subcommands.Add(searchCmd);
 rootCommand.Subcommands.Add(knowledgeCmd);
 
-// --- case create ---
+/// <summary>
+/// Defines the "case" command group and its subcommands (create, show).
+/// </summary>
 var caseCmd = new Command("case", "Manage case records");
 
+/// <summary>
+/// Subcommand: Creates a new case record with the specified details.
+/// </summary>
 var caseCreateCmd = new Command("create", "Create a new case record");
+/// <summary>The associated system or application name (required).</summary>
 var caseSystemOpt = new Option<string>("--system") { Required = true };
+/// <summary>A description of the problem or issue (required).</summary>
 var problemOpt = new Option<string>("--problem") { Required = true };
+/// <summary>Root cause analysis notes.</summary>
 var analysisOpt = new Option<string>("--analysis");
+/// <summary>Resolution steps applied.</summary>
 var resolutionOpt = new Option<string>("--resolution");
+/// <summary>Lessons learned from handling the case.</summary>
 var lessonsOpt = new Option<string>("--lessons");
+/// <summary>An optional RITM (Request Item) identifier.</summary>
 var ritmOpt = new Option<string>("--ritm-id");
+/// <summary>An optional change request identifier.</summary>
 var changeOpt = new Option<string>("--change-id");
 caseCreateCmd.Options.Add(caseSystemOpt);
 caseCreateCmd.Options.Add(problemOpt);
@@ -211,8 +250,11 @@ caseCreateCmd.SetAction((ParseResult result) =>
 
 caseCmd.Subcommands.Add(caseCreateCmd);
 
-// --- case show ---
+/// <summary>
+/// Subcommand: Displays detailed information for a single case record by its identifier.
+/// </summary>
 var caseShowCmd = new Command("show", "Show case record details");
+/// <summary>The unique identifier (GUID) of the case record to display.</summary>
 var caseIdArg = new Argument<Guid>("id");
 caseShowCmd.Arguments.Add(caseIdArg);
 caseShowCmd.SetAction((ParseResult result) =>

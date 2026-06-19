@@ -162,8 +162,13 @@ Issue created: 74fc9278-5376-440d-9d72-38b68d5ff3de
 
 ### "Tenemos algún Issue sobre el sistema X?"
 
-- Actualmente no hay filtro por sistema en `issue list`. Se puede revisar la tabla completa.
-- Para buscar Issues relacionados a un tema concreto, usa `.\axiom knowledge search <término>` ya que los Knowledge suelen estar vinculados a Issues.
+```
+.\axiom issue list --eai <código_eai>
+```
+
+Lista Issues filtrados por el código EAI del sistema. Ej: `.\axiom issue list --eai EAI001`.
+
+Para buscar Issues relacionados a un tema concreto, usa `.\axiom knowledge search <término>` ya que los Knowledge suelen estar vinculados a Issues.
 
 ---
 

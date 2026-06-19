@@ -48,4 +48,14 @@ public class EfIssueRepository : IIssueRepository
             .Include(i => i.State)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IEnumerable<Issue>> GetByEaiAsync(string eai, CancellationToken cancellationToken = default)
+    {
+        return await _context.Issues
+            .AsNoTracking()
+            .Include(i => i.System)
+            .Include(i => i.State)
+            .Where(i => i.System != null && i.System.EAI == eai)
+            .ToListAsync(cancellationToken);
+    }
 }

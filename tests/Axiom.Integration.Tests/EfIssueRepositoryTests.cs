@@ -77,6 +77,24 @@ public class EfIssueRepositoryTests : IDisposable
         loaded.ResolvedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
 
+    [Fact]
+    public async Task ShouldFilterByEai()
+    {
+        var system2 = new AxiomSystem("EAI002", "Second System", _testUser.UserId);
+        _context.Systems.Add(system2);
+        _context.SaveChanges();
+
+        var issue1 = new Issue("Issue on EAI001", _testSystem.SystemId, "Problem A", _testState.StateId, _testUser.UserId);
+        var issue2 = new Issue("Issue on EAI002", system2.SystemId, "Problem B", _testState.StateId, _testUser.UserId);
+        await _repo.SaveAsync(issue1);
+        await _repo.SaveAsync(issue2);
+
+        var results = await _repo.GetByEaiAsync("EAI001");
+
+        results.Should().HaveCount(1);
+        results.Single().Summary.Should().Be("Issue on EAI001");
+    }
+
     public void Dispose()
     {
         _context.Dispose();

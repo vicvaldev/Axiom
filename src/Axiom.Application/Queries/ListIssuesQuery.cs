@@ -3,4 +3,4 @@ using MediatR;
 
 namespace Axiom.Application.Queries;
 
-public record ListIssuesQuery : IRequest<IEnumerable<IssueDto>>;
+public record ListIssuesQuery(string? Eai = null) : IRequest<IEnumerable<IssueDto>>;

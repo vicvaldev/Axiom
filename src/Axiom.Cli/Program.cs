@@ -222,13 +222,16 @@ issueCreateCmd.SetAction((ParseResult result) =>
 
 issueCmd.Subcommands.Add(issueCreateCmd);
 
+var eaiOpt = new Option<string>("--eai", "Filter by system EAI code");
 var issueListCmd = new Command("list", "List all issues");
-issueListCmd.SetAction((ParseResult _) =>
+issueListCmd.Options.Add(eaiOpt);
+issueListCmd.SetAction((ParseResult result) =>
 {
     using var scope = host.Services.CreateScope();
     var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
-    var issues = mediator.Send(new ListIssuesQuery()).Result;
+    var eai = result.GetValue(eaiOpt);
+    var issues = mediator.Send(new ListIssuesQuery(eai)).Result;
 
     var table = new Table();
     table.AddColumns("Id", "Summary", "System", "State", "RITM", "Incident", "Created");

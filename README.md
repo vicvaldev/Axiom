@@ -1,7 +1,7 @@
 # Axiom — KnowledgeOps & Operational Continuity Platform
 
 > Plataforma de Conocimiento Operacional y Continuidad.
-> Construido con .NET 10, Clean Architecture, CQRS/MediatR.
+> Construido con .NET 10, Clean Architecture, CQRS/MediatR, EF Core + SQL Server.
 
 ---
 
@@ -11,9 +11,9 @@
 
 | Capa | Proyecto | Dependencias | Propósito |
 |---|---|---|---|
-| **Domain** | `Axiom.Domain` | Ninguna | Entidades, Value Objects, Enums, Excepciones |
-| **Application** | `Axiom.Application` | Domain | Casos de uso CQRS, validación FluentValidation, interfaces de repositorio |
-| **Infrastructure** | `Axiom.Infrastructure` | Application + Domain | Persistencia EF Core + SQL Server, repositorios, migraciones |
+| **Domain** | `Axiom.Domain` | Ninguna | Entidades (9), Value Objects, Excepciones |
+| **Application** | `Axiom.Application` | Domain | Casos de uso CQRS (4 commands, 5 queries, 9 handlers), validación FluentValidation, interfaces de repositorio, DTOs de proyección |
+| **Infrastructure** | `Axiom.Infrastructure` | Application + Domain | Persistencia EF Core + SQL Server, migraciones, configuraciones por entidad, repositorios, startup service |
 | **Entrypoint** | `Axiom.Cli` | Application + Infrastructure | CLI con System.CommandLine + Spectre.Console + MediatR |
 
 ### Stack principal
@@ -22,7 +22,7 @@
 - **MediatR 12.5** — CQRS in-process
 - **FluentValidation 12** — validación de comandos
 - **System.CommandLine 2** — parser de CLI
-- **Spectre.Console 0.57** — UI en terminal (tablas, paneles)
+- **Spectre.Console 0.57** — UI en terminal (tablas, paneles, prompts interactivos)
 - **EF Core 10 + SQL Server** — persistencia principal
 - **xUnit + FluentAssertions + NSubstitute + Coverlet** — tests
 
@@ -56,38 +56,51 @@ Server=localhost;Database=AXIOM;Integrated Security=True;TrustServerCertificate=
 
 ## 3. Comandos CLI
 
+### `startup` — Asistente interactivo
+
+Guía al usuario paso a paso para crear datos maestros iniciales:
+1. Crear usuario (Email + Name)
+2. Crear sistema (EAI + Name)
+3. Crear tipos de conocimiento (Documentation, Runbook, Troubleshooting, Reference, Tutorial, Other)
+4. Crear estados de issue (Open, InProgress, Resolved, Closed)
+5. Crear estados de conocimiento (Draft, Published, Archived, Deprecated)
+
+```powershell
+.\axiom startup
+```
+
 ### `knowledge create`
 
-Crea una entrada de conocimiento. **Status siempre `Draft`**, **todos los campos con validación de dominio**.
+Crea una entrada de conocimiento. **VersionNumber siempre 1**, FK a datos maestros existentes.
 
 | Opción | Requerido | Tipo | Descripción |
 |---|---|---|---|
 | `--title` | Sí | `string` | Título (max 500 chars) |
 | `--content` | Sí | `string` | Contenido principal |
-| `--system` | Sí | `string` | Sistema/aplicación asociada (max 200 chars) |
-| `--author` | Sí | `string` | Autor (max 200 chars) |
-| `--description` | No | `string` | Descripción corta |
+| `--summary` | No | `string` | Resumen corto |
+| `--system-id` | Sí | `long` | ID del sistema asociado |
+| `--type-id` | Sí | `long` | ID del tipo de conocimiento |
+| `--state-id` | Sí | `int` | ID del estado de conocimiento |
+| `--created-by` | Sí | `guid` | ID del usuario creador |
 | `--tags` | No | `string` | Tags separados por coma. Ej: `"iis,reinicio,produccion"` |
-| `--type` | No | `enum` | `Documentation`, `Runbook`, `Troubleshooting`, `Reference`, `Tutorial`, `Other` |
+| `--issue-id` | No | `guid` | ID del issue relacionado |
 
 **Output:**
 ```
 Knowledge entry created: <guid>
   Title: <title>
-  System: <system>
-  Type: <type>
-  Status: Draft
+  Version: 1
 ```
 
 ### `knowledge list`
 
-Lista todas las entradas de conocimiento no eliminadas en una tabla.
+Lista todas las entradas de conocimiento activas en una tabla.
 
 ```powershell
 .\axiom knowledge list
 ```
 
-Columnas: `Id` (8 chars), `Title`, `System`, `Type`, `Status`, `Updated`.
+Columnas: `Id` (8 chars), `Title`, `System`, `Type`, `State`, `Version`, `Updated`.
 
 ### `knowledge show <guid>`
 
@@ -97,13 +110,13 @@ Muestra detalle completo de una entrada por GUID.
 .\axiom knowledge show 177ed8be-6ec1-49f6-8439-8164aa2ea180
 ```
 
-Panel con: Title, Description, System, Type, Status, Author, Tags, Created, Updated, Content.
+Panel con: Title, Summary, Content, System, Type, State, Author, Tags, Version, IssueId, Created, Updated.
 
 Si no existe: `Knowledge entry not found.`
 
 ### `knowledge search <query>`
 
-Busca entradas por texto en **Title**, **Description**, **Content** y **Tags** (case-insensitive).
+Busca entradas por texto en **Title**, **Summary** y **Content** (case-insensitive).
 
 ```powershell
 .\axiom knowledge search "IIS"
@@ -111,100 +124,87 @@ Busca entradas por texto en **Title**, **Description**, **Content** y **Tags** (
 
 Misma tabla que `list`.
 
-### `case create`
+### `issue create`
 
-Crea un registro de caso/incidente. **Status siempre `Open`**.
+Crea un registro de issue/incidencia. FK a datos maestros existentes.
 
 | Opción | Requerido | Tipo | Descripción |
 |---|---|---|---|
-| `--system` | Sí | `string` | Sistema asociado (max 200 chars) |
+| `--summary` | Sí | `string` | Resumen (max 200 chars) |
 | `--problem` | Sí | `string` | Descripción del problema |
+| `--system-id` | Sí | `long` | ID del sistema asociado |
+| `--state-id` | Sí | `int` | ID del estado de issue |
+| `--created-by` | Sí | `guid` | ID del usuario creador |
 | `--analysis` | No | `string` | Análisis de causa raíz |
 | `--resolution` | No | `string` | Pasos de resolución |
-| `--lessons` | No | `string` | Lecciones aprendidas |
-| `--ritm-id` | No | `string` | ID RITM (ej. `RITM001234`) |
-| `--change-id` | No | `string` | ID de cambio (ej. `CHG005678`) |
+| `--ritm-number` | No | `string` | Número RITM (único nullable) |
+| `--incident-number` | No | `string` | Número de incidencia (único nullable) |
 
 **Output:**
 ```
-Case record created: <guid>
-  System: <system>
-  Problem: <problem>
-  Status: Open
+Issue created: <guid>
+  Summary: <summary>
+  State: <state>
 ```
 
-### `case show <guid>`
+### `issue list`
 
-Muestra detalle completo de un caso por GUID.
+Lista todos los issues activos en una tabla. Opcionalmente filtra por código EAI del sistema.
 
 ```powershell
-.\axiom case show 74fc9278-5376-440d-9d72-38b68d5ff3de
+.\axiom issue list
+.\axiom issue list --eai EAI001
 ```
 
-Panel con: System, Problem, Analysis, Resolution, Lessons Learned, RITM ID, Change ID, Status, Created.
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--eai` | No | `string` | Código EAI del sistema para filtrar |
 
-Si no existe: `Case record not found.`
+Columnas: `Id` (8 chars), `Summary`, `System`, `State`, `RITM`, `Incident`, `Created`.
+
+### `issue show <guid>`
+
+Muestra detalle completo de un issue por GUID.
+
+```powershell
+.\axiom issue show 74fc9278-5376-440d-9d72-38b68d5ff3de
+```
+
+Panel con: Summary, Problem, Analysis, Resolution, System, State, RITM, Incident, CreatedBy, Created, ResolvedAt.
+
+Si no existe: `Issue not found.`
 
 ---
 
-## 4. Capa de Dominio
+## 4. Modelo de Datos (9 entidades)
 
-### Entidades
+### Entidades del dominio
 
-#### `KnowledgeEntry`
+| Entidad | PK | FK | Notas |
+|---|---|---|---|
+| `User` | `UserId` (Guid) | — | `Email` único, `Name` |
+| `AxiomSystem` | `SystemId` (long, identity) | `OwnerUserId` → User | `EAI`(20), `Name`(200) |
+| `KnowledgeType` | `TypeId` (long, identity) | — | `Code` único, `Name`(200) |
+| `KnowledgeState` | `StateId` (int, identity) | — | `Code` único, `Name`(200) |
+| `IssueState` | `StateId` (int, identity) | — | `Code` único, `Name`(200) |
+| `KnowledgeTag` | `KnowledgeTagId` (long, identity) | — | `TagName`(100) único |
+| `Knowledge` | `KnowledgeId` (Guid) | `SystemId`, `CreatedByUserId`, `KnowledgeTypeId`, `KnowledgeStateId`, `IssueId` (nullable) | `Title`, `Summary`, `Content`, `VersionNumber` |
+| `Issue` | `IssueId` (Guid) | `SystemId`, `StateId`, `CreatedByUserId` | `Summary`, `Problem`, `Analysis`, `Resolution`, `RitmNumber`/`IncidentNumber` (únicos nullables), `ResolvedAt` |
+| `KnowledgeKnowledgeTag` | Compuesta (`KnowledgeId`+`KnowledgeTagId`) | Ambos FK | Join table many-to-many |
 
-| Propiedad | Tipo | Default / Notas |
-|---|---|---|
-| `Id` | `Guid` | Generado en constructor |
-| `Title` | `string` | Requerido |
-| `Description` | `string` | `""` si null |
-| `Content` | `string` | Requerido |
-| `System` | `SystemName` | Value Object |
-| `Tags` | `List<string>` | Lista vacía si null |
-| `CreatedAt` | `DateTime` | UTC |
-| `UpdatedAt` | `DateTime` | UTC, refrescado en `Update()` |
-| `Author` | `string` | `"unknown"` si null |
-| `Type` | `KnowledgeType` | Enum |
-| `Status` | `KnowledgeStatusValue` | Value Object |
+### Relaciones principales
 
-Métodos: `Update(title, description, content, system, tags, author, type)` actualiza todo y refresca `UpdatedAt`.
-
-#### `CaseRecord`
-
-| Propiedad | Tipo | Default / Notas |
-|---|---|---|
-| `Id` | `Guid` | Generado en constructor |
-| `RitmId` | `RitmId?` | Nullable Value Object |
-| `ChangeId` | `string?` | Nullable string |
-| `System` | `SystemName` | Value Object |
-| `Problem` | `string` | Requerido |
-| `Analysis` | `string` | `""` si null |
-| `Resolution` | `string` | `""` si null |
-| `LessonsLearned` | `string` | `""` si null |
-| `CreatedAt` | `DateTime` | UTC |
-| `Status` | `CaseStatus` | `Open` por defecto |
-
-Métodos: `UpdateStatus(CaseStatus)` cambia el estado.
-
-### Value Objects (`readonly record struct` con `JsonConverter`)
-
-| VO | Propiedad | Fallback JSON |
-|---|---|---|
-| `SystemName` | `string Value` | `"unknown"` si null/vacío |
-| `RitmId` | `string Value` | `"unknown"` si null/vacío |
-| `KnowledgeStatusValue` | `KnowledgeStatus Value` | `Draft` si no se puede parsear |
-
-### Enums
-
-| Enum | Valores |
-|---|---|
-| `KnowledgeStatus` | `Draft`, `Published`, `Archived`, `Deprecated` |
-| `KnowledgeType` | `Documentation`, `Runbook`, `Troubleshooting`, `Reference`, `Tutorial`, `Other` |
-| `CaseStatus` | `Open`, `InProgress`, `Resolved`, `Closed` |
+- `User` → `AxiomSystem` (1:N), `Issue` (1:N), `Knowledge` (1:N)
+- `AxiomSystem` → `Issue` (1:N), `Knowledge` (1:N)
+- `IssueState` → `Issue` (1:N)
+- `KnowledgeState` → `Knowledge` (1:N)
+- `KnowledgeType` → `Knowledge` (1:N)
+- `Issue` → `Knowledge` (1:N, nullable FK)
+- `Knowledge` ↔ `KnowledgeTag` (N:M via `KnowledgeKnowledgeTag`)
 
 ### Soft-delete
 
-Las entidades tienen propiedad `DeletedAt` (DateTime?). Las queries aplican `HasQueryFilter(x => x.DeletedAt == null)` para excluir registros eliminados lógicamente.
+Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). Las queries aplican `HasQueryFilter(x => x.DeletedAt == null)` en el DbContext.
 
 ---
 
@@ -214,79 +214,87 @@ Las entidades tienen propiedad `DeletedAt` (DateTime?). Las queries aplican `Has
 
 | Command | Handler | Retorna |
 |---|---|---|
-| `CreateKnowledgeCommand` | `CreateKnowledgeHandler` | `KnowledgeEntry` |
-| `CreateCaseCommand` | `CreateCaseHandler` | `CaseRecord` |
+| `CreateKnowledgeCommand` | `CreateKnowledgeHandler` | `Knowledge` |
+| `UpdateKnowledgeCommand` | `UpdateKnowledgeHandler` | `Knowledge?` |
+| `DeleteKnowledgeCommand` | `DeleteKnowledgeHandler` | `bool` |
+| `CreateIssueCommand` | `CreateIssueHandler` | `Issue` |
 
 ### Queries
 
 | Query | Handler | Retorna |
 |---|---|---|
-| `ListKnowledgeQuery` | `ListKnowledgeHandler` | `IEnumerable<KnowledgeEntry>` |
-| `GetKnowledgeByIdQuery` | `GetKnowledgeByIdHandler` | `KnowledgeEntry?` |
-| `SearchKnowledgeQuery` | `SearchKnowledgeHandler` | `IEnumerable<KnowledgeEntry>` |
-| `GetCaseByIdQuery` | `GetCaseByIdHandler` | `CaseRecord?` |
+| `ListKnowledgeQuery` | `ListKnowledgeHandler` | `IEnumerable<KnowledgeDto>` |
+| `GetKnowledgeByIdQuery` | `GetKnowledgeByIdHandler` | `Knowledge?` |
+| `SearchKnowledgeQuery` | `SearchKnowledgeHandler` | `IEnumerable<KnowledgeDto>` |
+| `ListIssuesQuery` | `ListIssuesHandler` | `IEnumerable<IssueDto>` |
+| `GetIssueByIdQuery` | `GetIssueByIdHandler` | `Issue?` |
+
+### DTOs (proyecciones de solo lectura)
+
+- `KnowledgeDto` — `KnowledgeId`, `Title`, `Summary`, `SystemName`, `Tags`, `TypeName`, `StateName`, `CreatedByName`, `VersionNumber`, `UpdatedAt`
+- `IssueDto` — `IssueId`, `Summary`, `SystemName`, `StateName`, `RitmNumber`, `IncidentNumber`, `CreatedAt`, `ResolvedAt`
 
 ### Validadores (FluentValidation)
 
-| Validador | Reglas |
+| Validador | Reglas principales |
 |---|---|
-| `CreateKnowledgeValidator` | `Title`: NotEmpty, MaxLength(500); `Content`: NotEmpty; `System`: NotEmpty, MaxLength(200); `Author`: NotEmpty, MaxLength(200) |
-| `CreateCaseValidator` | `System`: NotEmpty, MaxLength(200); `Problem`: NotEmpty |
+| `CreateKnowledgeValidator` | `Title`: NotEmpty, MaxLength(500); `Content`: NotEmpty; `SystemId` > 0; `CreatedByUserId` not empty; `KnowledgeTypeId` > 0; `KnowledgeStateId` > 0 |
+| `CreateIssueValidator` | `Summary`: NotEmpty, MaxLength(200); `Problem`: NotEmpty; `SystemId` > 0; `CreatedByUserId` not empty; `StateId` > 0 |
+
+### Interfaces de repositorio
+
+| Interfaz | Métodos |
+|---|---|
+| `IKnowledgeRepository` | `SaveAsync`, `GetByIdAsync`, `SearchAsync`, `GetAllAsync`, `DeleteAsync` |
+| `IIssueRepository` | `SaveAsync`, `GetByIdAsync`, `GetAllAsync` |
+| `ITagRepository` | `FindOrCreateAsync(string)` |
+| `IStartupService` | `CreateUserAsync`, `CreateSystemAsync`, `CreateKnowledgeTypeAsync`, `CreateIssueStateAsync`, `CreateKnowledgeStateAsync` |
 
 ---
 
 ## 6. Capa de Infraestructura
 
-### Persistencia activa: EF Core + SQL Server
+### Persistencia: EF Core + SQL Server
 
-El CLI registra `AddInfrastructureEF(connectionString)` al iniciar, lo que configura `AxiomDbContext` con SQL Server.
-
-- **DbContext**: `AxiomDbContext` con `DbSet<KnowledgeEntry>` y `DbSet<CaseRecord>`
-- **Repositorios**: `EfKnowledgeRepository` y `EfCaseRepository` implementan las interfaces del dominio
-- **Migraciones**: `src/Axiom.Infrastructure/Migrations/` — `InitialCreate` ya aplicada
-- **Value Converters**: `TagsConverter` (List\<string> ↔ string), `KnowledgeStatusValueConverter` (enum ↔ byte), `SystemNameConverter`, `RitmIdConverter`
-- **Soft-delete**: `HasQueryFilter(x => x.DeletedAt == null)` en ambas entidades
+- **DbContext**: `AxiomDbContext` con 9 `DbSet`s y configuraciones vía `IEntityTypeConfiguration<T>`
+- **Configuraciones**: 8 archivos en `Persistence/Configurations/` — una por entidad (PKs, FKs, indexes, tipos, delete behavior)
+- **Repositorios**: `EfKnowledgeRepository`, `EfIssueRepository`, `EfTagRepository`, `EfStartupService`
+- **Migraciones**: `src/Axiom.Infrastructure/Migrations/` — `InitialCreate` ya aplicada (EF Core 10.0.9)
+- **FK delete behavior**: `Restrict` para la mayoría, `Cascade` para join table `KnowledgeKnowledgeTags`, `SetNull` para Knowledge → Issue
 
 ### Design-time factory
 
 `AxiomDesignTimeDbContextFactory` lee `AXIOM_CONNECTION_STRING` del entorno (fallback: `Server=localhost;Database=AXIOM;...`) para comandos de migración.
 
-### Repositorios JSON (legacy/alternativa)
-
-Los repositorios JSON (`JsonKnowledgeRepository`, `JsonCaseRepository`) existen pero **no están registrados** por defecto en el CLI. Se activan con `AddInfrastructure()`.
-
-Configuración en sección `"JsonData"`:
-
-| Opción | Default |
-|---|---|
-| `KnowledgeFilePath` | `data/knowledge.json` |
-| `CasesFilePath` | `data/cases.json` |
-
 ---
 
 ## 7. Tests
 
-| Proyecto | Cantidad |
+| Proyecto | Tests |
 |---|---|
-| `Axiom.Domain.Tests` | 11 tests (entidades, value objects) |
+| `Axiom.Domain.Tests` | 10 tests (entidades Knowledge e Issue) |
 | `Axiom.Application.Tests` | 3 tests (handlers con NSubstitute) |
-| `Axiom.Integration.Tests` | 4 tests (JSON repos roundtrip, search, delete) |
+| `Axiom.Integration.Tests` | 11 tests (EF Core InMemory — startup service, repositorios Knowledge e Issue) |
 
 ```bash
 dotnet test                              # Todos los tests
 dotnet test tests/Axiom.Application.Tests # Proyecto específico
-dotnet test --filter "KnowledgeRepository_ShouldRoundTripEntry"
+dotnet test --filter "ShouldRoundTripEntry"
 dotnet test --collect:"XPlat Code Coverage"
 ```
 
+Tests de integración usan proveedor InMemory de EF Core con datos maestros seed (User, System, KnowledgeType, KnowledgeState, IssueState). No requieren SQL Server ni variables de entorno.
+
 ---
 
-## 8. Archivos de documentación para agentes
+## 8. Documentación adicional
 
 | Archivo | Propósito |
 |---|---|
 | `AGENTS.md` | Guía del proyecto para el agente (estructura, stack, convenciones, git) |
-| `instruction.md` | Instrucciones detalladas del CLI para consumo por agentes (comandos, opciones, tipos, enums, edge cases, ejemplos) |
+| `docs.md` | Instrucciones detalladas del CLI para consumo por agentes (comandos, opciones, tipos, enums, edge cases, ejemplos) |
+| `data/tables.md` | Definiciones de tablas (columnas, PKs, FKs, constraints) |
+| `data/diagram.md` | Diagrama ER en Mermaid |
 
 ---
 

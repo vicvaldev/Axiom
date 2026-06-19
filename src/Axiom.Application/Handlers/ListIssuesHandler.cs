@@ -16,7 +16,9 @@ public class ListIssuesHandler : IRequestHandler<ListIssuesQuery, IEnumerable<Is
 
     public async Task<IEnumerable<IssueDto>> Handle(ListIssuesQuery request, CancellationToken cancellationToken)
     {
-        var issues = await _repository.GetAllAsync(cancellationToken);
+        var issues = string.IsNullOrWhiteSpace(request.Eai)
+            ? await _repository.GetAllAsync(cancellationToken)
+            : await _repository.GetByEaiAsync(request.Eai, cancellationToken);
 
         return issues.Select(i => new IssueDto
         {

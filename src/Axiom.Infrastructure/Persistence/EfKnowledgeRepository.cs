@@ -13,64 +13,75 @@ public class EfKnowledgeRepository : IKnowledgeRepository
         _context = context;
     }
 
-    public async Task SaveAsync(KnowledgeEntry entry, CancellationToken cancellationToken = default)
+    public async Task SaveAsync(Knowledge entry, CancellationToken cancellationToken = default)
     {
-        var existing = await _context.KnowledgeEntries
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(e => e.Id == entry.Id, cancellationToken);
+        var existing = await _context.Knowledges
+            .FirstOrDefaultAsync(e => e.KnowledgeId == entry.KnowledgeId, cancellationToken);
 
         if (existing is not null)
         {
             _context.Entry(existing).CurrentValues.SetValues(entry);
-            _context.Entry(existing).Property("DeletedAt").CurrentValue = null;
         }
         else
         {
-            await _context.KnowledgeEntries.AddAsync(entry, cancellationToken);
+            await _context.Knowledges.AddAsync(entry, cancellationToken);
         }
 
         await _context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<KnowledgeEntry?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<Knowledge?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _context.KnowledgeEntries
-            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+        return await _context.Knowledges
+            .AsNoTracking()
+            .Include(k => k.System)
+            .Include(k => k.CreatedBy)
+            .Include(k => k.Type)
+            .Include(k => k.State)
+            .Include(k => k.KnowledgeKnowledgeTags)
+                .ThenInclude(t => t.Tag)
+            .FirstOrDefaultAsync(k => k.KnowledgeId == id, cancellationToken);
     }
 
-    public async Task<IEnumerable<KnowledgeEntry>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Knowledge>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.KnowledgeEntries
+        return await _context.Knowledges
+            .AsNoTracking()
+            .Include(k => k.System)
+            .Include(k => k.Type)
+            .Include(k => k.State)
+            .Include(k => k.KnowledgeKnowledgeTags)
+                .ThenInclude(t => t.Tag)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IEnumerable<KnowledgeEntry>> SearchAsync(string query, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Knowledge>> SearchAsync(string query, CancellationToken cancellationToken = default)
     {
-        var dbResults = await _context.KnowledgeEntries
-            .Where(e =>
-                e.Title.Contains(query) ||
-                e.Description.Contains(query) ||
-                e.Content.Contains(query))
-            .ToListAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(query))
+            return Enumerable.Empty<Knowledge>();
 
-        return dbResults
-            .Where(e =>
-                e.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                e.Description.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                e.Content.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                e.Tags.Any(t => t.Contains(query, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
+        return await _context.Knowledges
+            .AsNoTracking()
+            .Include(k => k.System)
+            .Include(k => k.Type)
+            .Include(k => k.State)
+            .Include(k => k.KnowledgeKnowledgeTags)
+                .ThenInclude(t => t.Tag)
+            .Where(k =>
+                k.Title.Contains(query) ||
+                k.Summary.Contains(query) ||
+                k.Content.Contains(query))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var entry = await _context.KnowledgeEntries
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+        var entry = await _context.Knowledges
+            .FirstOrDefaultAsync(e => e.KnowledgeId == id, cancellationToken);
 
         if (entry is not null)
         {
-            _context.Entry(entry).Property("DeletedAt").CurrentValue = DateTime.UtcNow;
+            _context.Knowledges.Remove(entry);
             await _context.SaveChangesAsync(cancellationToken);
         }
     }

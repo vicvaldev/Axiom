@@ -3,4 +3,4 @@ using MediatR;
 
 namespace Axiom.Application.Queries;
 
-public record GetKnowledgeByIdQuery(Guid Id) : IRequest<Knowledge?>;
+public record GetIssueByIdQuery(Guid Id) : IRequest<Issue?>;

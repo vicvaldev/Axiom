@@ -1,6 +1,6 @@
 # Axiom CLI — Instrucciones para el Agente
 
-Eres un asistente que tiene acceso a la base de conocimiento operacional (Knowledge) y al registro de casos/incidentes (Cases) de la organización a través del CLI de Axiom.
+Eres un asistente que tiene acceso a la base de conocimiento operacional (Knowledge) y al registro de incidencias/Issues de la organización a través del CLI de Axiom.
 
 ## Cómo ejecutar comandos
 
@@ -20,27 +20,9 @@ El CLI corre sobre .NET 10 y se conecta a SQL Server. No necesita compilación n
 .\axiom knowledge search <texto>
 ```
 
-Busca entradas de conocimiento cuyo título, descripción, contenido o tags contengan el texto indicado (búsqueda sin distinción de mayúsculas/minúsculas).
+Busca entradas de conocimiento cuyo título, resumen o contenido contengan el texto indicado.
 
-**Ejemplos de uso:**
-
-| Pregunta del usuario | Comando a ejecutar |
-|---|---|
-| "Busca si tenemos documentación sobre IIS" | `.\axiom knowledge search IIS` |
-| "Hay algún troubleshooting de errores 500?" | `.\axiom knowledge search "error 500"` |
-| "Qué sabemos sobre reinicio de servidores?" | `.\axiom knowledge search reinicio` |
-| "Busca en la base de conocimientos si tenemos errores relacionados al IIS en el EAI 11478" | `.\axiom knowledge search IIS` (luego buscas también `.\axiom knowledge search "EAI 11478"` o `.\axiom case show <guid>` si el ID es de un caso) |
-
-**Output:** Una tabla con columnas `Id`, `Title`, `System`, `Type`, `Status`.
-
-```
-┌──────────┬───────────────────────────┬────────────┬─────────────────┬────────┐
-│ Id       │ Title                     │ System     │ Type            │ Status │
-├──────────┼───────────────────────────┼────────────┼─────────────────┼────────┤
-│ 177ed8be │ Cómo reiniciar el         │ IIS-Server │ Troubleshooting │ Draft  │
-│          │ servidor IIS              │            │                 │        │
-└──────────┴───────────────────────────┴────────────┴─────────────────┴────────┘
-```
+**Output:** Una tabla con columnas `Id`, `Title`, `System`, `Type`, `State`, `Tags`, `Updated`.
 
 **Interpretación:** Si la tabla tiene filas, existían entradas relacionadas. Si solo muestra los encabezados (sin filas), no se encontraron resultados.
 
@@ -54,12 +36,7 @@ El `Id` (primeros 8 caracteres) identifica cada entrada. Se puede usar el GUID c
 .\axiom knowledge show <guid>
 ```
 
-**Ejemplo:**
-```
-.\axiom knowledge show 177ed8be-6ec1-49f6-8439-8164aa2ea180
-```
-
-**Output:** Un panel con: Title, Description, System, Type, Status, Author, Tags, Created, Updated, Content.
+**Output:** Un panel con: Title, Summary, System, Type, State, Created By, Tags, Version, Created, Updated, Content.
 
 Usa este comando cuando el agente necesite leer el contenido completo de una entrada.
 
@@ -76,83 +53,92 @@ Knowledge entry not found.
 .\axiom knowledge list
 ```
 
-Lista todas las entradas de conocimiento no eliminadas. Misma tabla que `search`.
+Lista todas las entradas de conocimiento. Misma tabla que `search`.
 
 ---
 
-### 4. Ver detalle de un caso/incidente
+### 4. Ver detalle de un Issue
 
 ```
-.\axiom case show <guid>
+.\axiom issue show <guid>
 ```
 
-**Ejemplo:**
-```
-.\axiom case show 74fc9278-5376-440d-9d72-38b68d5ff3de
-```
+**Output:** Un panel con: Summary, System, State, RITM, Incident, Created By, Created, Resolved, Problem, Analysis, Resolution.
 
-**Output:** Un panel con: System, Problem, Analysis, Resolution, Lessons Learned, RITM ID, Change ID, Status, Created.
-
-Usa este comando cuando el usuario pregunte por un caso específico o cuando tengas un GUID de caso.
+Usa este comando cuando el usuario pregunte por un Issue específico o cuando tengas un GUID de Issue.
 
 **Si el GUID no existe:**
 ```
-Case record not found.
+Issue not found.
 ```
 
 ---
 
-### 5. Crear una entrada de conocimiento
+### 5. Listar Issues
 
 ```
-.\axiom knowledge create --title "<título>" --content "<contenido>" --system "<sistema>" --author "<autor>" [--description "<descripción>"] [--tags "<tag1>,<tag2>"] [--type <Tipo>]
+.\axiom issue list
+```
+
+Lista todos los Issues en una tabla con columnas: `Id`, `Summary`, `System`, `State`, `RITM`, `Incident`, `Created`.
+
+---
+
+### 6. Crear una entrada de conocimiento
+
+```
+.\axiom knowledge create --system-id <id> --title "<título>" --content "<contenido>" --created-by <userId> --type-id <id> --state-id <id> [--summary "<resumen>"] [--tags "<tag1>,<tag2>"] [--issue-id <guid>]
 ```
 
 | Opción | Requerido | Descripción |
 |---|---|---|
+| `--system-id` | Sí | ID del sistema asociado (long) |
 | `--title` | Sí | Título de la entrada |
 | `--content` | Sí | Contenido principal |
-| `--system` | Sí | Sistema o aplicación asociada |
-| `--author` | Sí | Nombre del autor |
-| `--description` | No | Descripción corta |
-| `--tags` | No | Tags separados por coma. Ej: `"iis,reinicio"` |
-| `--type` | No | Tipo: `Documentation`, `Runbook`, `Troubleshooting`, `Reference`, `Tutorial`, `Other` |
+| `--created-by` | Sí | GUID del usuario creador |
+| `--type-id` | Sí | ID del tipo de conocimiento (long) |
+| `--state-id` | Sí | ID del estado de conocimiento (int) |
+| `--summary` | No | Resumen corto (máx 200 caracteres) |
+| `--tags` | No | Tags separados por coma. Ej: `iis,reinicio` |
+| `--issue-id` | No | GUID del Issue asociado (opcional) |
 
 **Output:**
 ```
-Knowledge entry created: 177ed8be-6ec1-49f6-8439-8164aa2ea180
+Knowledge created: 177ed8be-6ec1-49f6-8439-8164aa2ea180
   Title: Cómo reiniciar IIS
-  System: IIS-Server
-  Type: Troubleshooting
-  Status: Draft
+  System ID: 1
+  Type ID: 2
+  State ID: 1
 ```
 
 El GUID se usa para referenciar la entrada después.
 
 ---
 
-### 6. Crear un caso/incidente
+### 7. Crear un Issue
 
 ```
-.\axiom case create --system "<sistema>" --problem "<problema>" [--analysis "<análisis>"] [--resolution "<resolución>"] [--lessons "<lecciones>"] [--ritm-id "<id>"] [--change-id "<id>"]
+.\axiom issue create --system-id <id> --summary "<resumen>" --problem "<problema>" --state-id <id> --created-by <userId> [--analysis "<análisis>"] [--resolution "<resolución>"] [--ritm-number "<número>"] [--incident-number "<número>"]
 ```
 
 | Opción | Requerido | Descripción |
 |---|---|---|
-| `--system` | Sí | Sistema asociado |
+| `--system-id` | Sí | ID del sistema asociado (long) |
+| `--summary` | Sí | Resumen del Issue |
 | `--problem` | Sí | Descripción del problema |
+| `--state-id` | Sí | ID del estado del Issue (int) |
+| `--created-by` | Sí | GUID del usuario creador |
 | `--analysis` | No | Análisis de causa raíz |
 | `--resolution` | No | Pasos de resolución |
-| `--lessons` | No | Lecciones aprendidas |
-| `--ritm-id` | No | ID del RITM (ej. `RITM001234`) |
-| `--change-id` | No | ID del cambio (ej. `CHG005678`) |
+| `--ritm-number` | No | Número de RITM (ej. `RITM001234`) |
+| `--incident-number` | No | Número de Incidente (ej. `INC005678`) |
 
 **Output:**
 ```
-Case record created: 74fc9278-5376-440d-9d72-38b68d5ff3de
-  System: CRM-App
-  Problem: Error 500 al cargar módulo de facturación
-  Status: Open
+Issue created: 74fc9278-5376-440d-9d72-38b68d5ff3de
+  Summary: Error 500 al cargar módulo de facturación
+  System ID: 1
+  State ID: 1
 ```
 
 ---
@@ -170,21 +156,21 @@ Case record created: 74fc9278-5376-440d-9d72-38b68d5ff3de
 1. Ejecuta `.\axiom knowledge create` con los datos proporcionados por el usuario
 2. Confirma al usuario el GUID y los datos creados
 
-### "Qué casos tenemos registrados?"
+### "Qué Issues tenemos registrados?"
 
-Actualmente solo se puede ver un caso individual por GUID. No hay comando para listar todos los casos.
+1. Ejecuta `.\axiom issue list` para ver todos los Issues
 
-### "Tenemos algún caso sobre el sistema X?"
+### "Tenemos algún Issue sobre el sistema X?"
 
-No hay búsqueda por sistema para casos. Si el usuario tiene un GUID de caso, usa `.\axiom case show <guid>`. Si no, no hay forma de buscar casos actualmente.
+- Actualmente no hay filtro por sistema en `issue list`. Se puede revisar la tabla completa.
+- Para buscar Issues relacionados a un tema concreto, usa `.\axiom knowledge search <término>` ya que los Knowledge suelen estar vinculados a Issues.
 
 ---
 
 ## Consideraciones importantes
 
 1. **Búsqueda sin resultados**: Si `knowledge search` devuelve una tabla vacía (solo encabezados), significa que no hay entradas que coincidan con la búsqueda
-2. **GUID no encontrado**: Si `knowledge show` o `case show` no encuentran el GUID, el mensaje es `not found` en rojo
+2. **GUID no encontrado**: Si `knowledge show` o `issue show` no encuentran el GUID, el mensaje es `not found` en rojo
 3. **IDs truncados**: En las tablas de listado, el `Id` muestra solo los primeros 8 caracteres del GUID. Para operaciones como `show`, usa el GUID completo
-4. **Tags en la búsqueda**: La búsqueda también encuentra coincidencias dentro de los tags de cada entrada
-5. **Case list no disponible**: No hay comando para listar casos. Solo se puede ver un caso si se conoce su GUID
-6. **Errores de conexión**: Si la base de datos no está disponible, el CLI mostrará un error de SQL Server
+4. **IDs de referencia**: Los comandos `create` usan IDs numéricos para System, Type y State. Estos deben obtenerse consultando las tablas de referencia correspondientes
+5. **Errores de conexión**: Si la base de datos no está disponible, el CLI mostrará un error de SQL Server

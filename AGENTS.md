@@ -3,12 +3,12 @@
 ## Project structure (Clean Architecture)
 
 ```
-Axiom.Domain/        — Entities, Enums, ValueObjects, Exceptions. Zero dependencies.
-Axiom.Application/   — CQRS (MediatR), Interfaces, Validators (FluentValidation). Depends on Domain.
-Axiom.Infrastructure/— Persistence (EF Core SQL Server + JSON files), Data, Migrations. Depends on Application + Domain.
+Axiom.Domain/        — Entities, ValueObjects, Exceptions. Zero dependencies.
+Axiom.Application/   — CQRS (MediatR), DTOs, Interfaces, Validators (FluentValidation). Depends on Domain.
+Axiom.Infrastructure/— Persistence (EF Core SQL Server), Configurations, Migrations. Depends on Application + Domain.
 Axiom.Cli/           — Entrypoint (exe), System.CommandLine + Spectre.Console + MediatR.
 tests/               — *Domain.Tests, *Application.Tests, *Integration.Tests (xUnit).
-data/                — Default JSON file storage: cases.json, knowledge.json.
+data/                — diagram.md, tables.md (documentation only).
 ```
 
 ## Stack
@@ -18,13 +18,27 @@ data/                — Default JSON file storage: cases.json, knowledge.json.
 - CLI: System.CommandLine 2 + Spectre.Console 0.57
 - Tests: xUnit + FluentAssertions + NSubstitute (mocks) + Coverlet (coverage)
 
+## Database model (9 entities)
+
+| Table | PK | Notes |
+|-------|----|-------|
+| `Users` | `UserId` (GUID) | `Email` (unique), `Name` |
+| `Systems` | `SystemId` (long, identity) | `EAI`(20), `Name`(200), FK→Users |
+| `KnowledgeTags` | `KnowledgeTagId` (long, identity) | `TagName`(100, unique) |
+| `KnowledgeTypes` | `TypeId` (long, identity) | `Code`(unique), `Name`(200) |
+| `IssueStates` | `StateId` (int, identity) | `Code`(unique), `Name`(200) |
+| `KnowledgeStates` | `StateId` (int, identity) | `Code`(unique), `Name`(200) |
+| `Knowledges` | `KnowledgeId` (GUID) | FKs→ Systems, Users, KnowledgeTypes, KnowledgeStates, Issues (nullable) |
+| `Issues` | `IssueId` (GUID) | FKs→ Systems, IssueStates, Users; `RitmNumber`/`IncidentNumber` (unique nullable) |
+| `KnowledgeKnowledgeTags` | Compuesta (KnowledgeId, KnowledgeTagId) | Many-to-many join |
+
 ## Build & test (from repo root)
 
 ```bash
 dotnet build               # build all projects
 dotnet test                # run all tests
 dotnet test tests/Axiom.Application.Tests  # single test project
-dotnet test --filter "KnowledgeRepository_ShouldRoundTripEntry"  # single test
+dotnet test --filter "ShouldRoundTripEntry"  # single test
 ```
 
 No special order required. Tests are self-contained (no external services needed).
@@ -32,34 +46,36 @@ No special order required. Tests are self-contained (no external services needed
 ## CLI commands
 
 ```
-dotnet run -- knowledge create --system-id <guid> --title <str> --content <str> [--description] [--tags] [--type]
+dotnet run -- knowledge create --system-id <long> --title <str> --content <str> [--summary] [--type-id] [--state-id] [--tags <t1,t2>] [--issue-id]
 dotnet run -- knowledge list
 dotnet run -- knowledge show <guid>
 dotnet run -- knowledge search <query>
-dotnet run -- case create --system-id <guid> --problem <str> [--title] [--analysis] [--resolution] [--lessons] [--ritm-id] [--change-id]
-dotnet run -- case show <guid>
+
+dotnet run -- issue create --system-id <long> --summary <str> --problem <str> [--analysis] [--resolution] [--ritm-number] [--incident-number] [--state-id]
+dotnet run -- issue list
+dotnet run -- issue show <guid>
 ```
 
-`--type` accepts enum names: `Procedure`, `Incident`, `LessonLearned`, `Change`, `Troubleshooting`.
+## Persistence
 
-## Dual persistence
-
-- **Default**: JSON files at `data/knowledge.json` and `data/cases.json` (paths from `JsonDataOptions` config section `"JsonData"`).
-- **Opt-in EF Core**: call `AddInfrastructureEF(connectionString)` (available but not wired by default). Design-time factory reads `AXIOM_CONNECTION_STRING` env var (fallback: `Server=localhost;Database=AXIOM;...`).
-- EF Migrations exist at `src/Axiom.Infrastructure/Persistence/Migrations/`.
+- **EF Core only** (SQL Server via `AddInfrastructure(connectionString)`).
+- Design-time factory reads `AXIOM_CONNECTION_STRING` env var (fallback: `Server=localhost;Database=AXIOM;...`).
+- Migrations at `src/Axiom.Infrastructure/Persistence/Migrations/`.
 
 ## Domain conventions
 
-- Private setters + `[JsonConstructor]` for entity deserialization.
-- Value objects: `readonly record struct` with custom `JsonConverter` (`RitmId`, `ChangeId`, `SystemName`, `KnowledgeStatusValue`).
-- Soft-delete via `DeletedAt` column + `HasQueryFilter(x => x.DeletedAt == null)`.
-- Enums stored as `byte` (`tinyint` in SQL Server).
-- EF uses `ValueConverter` for knowledge status; other value objects stored as strings in JSON repos, as strings in EF via converters.
+- Private setters with domain constructors (validation in ctors).
+- Navigation properties: explicit `.Include()` / `.ThenInclude()` — no lazy loading, no virtual.
+- Collections: `HashSet<T>` initialized with `= new HashSet<T>()`.
+- All queries use `AsNoTracking()` for read operations.
+- DTO projections for list/search responses (no navigation properties exposed).
+- Nullable FKs (`IssueId`, `RitmNumber`, `IncidentNumber`, `ResolvedAt`) allowed where applicable.
+- FK delete behavior: `Restrict` for most, `Cascade` for join table, `SetNull` for Knowledge→Issue.
 
 ## Testing conventions
 
-- JSON repository integration tests use `Path.GetTempPath()` temp dirs with `IDisposable` cleanup (no fixtures needed).
-- Application tests mock `IKnowledgeRepository` / `ICaseRepository` with NSubstitute.
+- Application tests mock `IKnowledgeRepository`, `IIssueRepository`, `ITagRepository` with NSubstitute.
+- Integration tests use EF Core InMemory provider with seeded reference data (User, System, KnowledgeType, KnowledgeState, IssueState).
 - No `appsettings.json` or environment setup required for tests.
 - Coverage: `coverlet.collector` (already referenced, run with `dotnet test --collect:"XPlat Code Coverage"`).
 

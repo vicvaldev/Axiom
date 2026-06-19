@@ -1,6 +1,4 @@
 using Axiom.Domain.Entities;
-using Axiom.Domain.Enums;
-using Axiom.Domain.ValueObjects;
 using MediatR;
 
 namespace Axiom.Application.Commands;
@@ -8,9 +6,10 @@ namespace Axiom.Application.Commands;
 public record UpdateKnowledgeCommand(
     Guid Id,
     string Title,
-    string Description,
+    string Summary,
     string Content,
-    string System,
-    List<string> Tags,
-    KnowledgeType Type,
-    KnowledgeStatusValue Status) : IRequest<KnowledgeEntry?>;
+    long SystemId,
+    long KnowledgeTypeId,
+    int KnowledgeStateId,
+    Guid? IssueId,
+    List<string> Tags) : IRequest<Knowledge?>;

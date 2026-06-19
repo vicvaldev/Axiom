@@ -1,44 +1,42 @@
 using Axiom.Application.Commands;
 using Axiom.Application.Interfaces;
 using Axiom.Domain.Entities;
-using Axiom.Domain.ValueObjects;
 using MediatR;
 
 namespace Axiom.Application.Handlers;
 
-/// <summary>
-/// Handles the <see cref="CreateKnowledgeCommand"/> by creating a new <see cref="KnowledgeEntry"/> and persisting it.
-/// </summary>
-public class CreateKnowledgeHandler : IRequestHandler<CreateKnowledgeCommand, KnowledgeEntry>
+public class CreateKnowledgeHandler : IRequestHandler<CreateKnowledgeCommand, Knowledge>
 {
     private readonly IKnowledgeRepository _repository;
+    private readonly ITagRepository _tagRepository;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="CreateKnowledgeHandler"/> class.
-    /// </summary>
-    /// <param name="repository">The knowledge repository used for persistence.</param>
-    public CreateKnowledgeHandler(IKnowledgeRepository repository)
+    public CreateKnowledgeHandler(IKnowledgeRepository repository, ITagRepository tagRepository)
     {
         _repository = repository;
+        _tagRepository = tagRepository;
     }
 
-    /// <summary>
-    /// Handles the command by constructing a <see cref="KnowledgeEntry"/> from the request data and saving it.
-    /// </summary>
-    /// <param name="request">The create knowledge command.</param>
-    /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
-    /// <returns>The newly created <see cref="KnowledgeEntry"/>.</returns>
-    public async Task<KnowledgeEntry> Handle(CreateKnowledgeCommand request, CancellationToken cancellationToken)
+    public async Task<Knowledge> Handle(CreateKnowledgeCommand request, CancellationToken cancellationToken)
     {
-        var entry = new KnowledgeEntry(
+        var entry = new Knowledge(
             request.Title,
-            request.Description,
+            request.Summary,
             request.Content,
-            new SystemName(request.System),
-            request.Tags,
-            request.Author,
-            request.Type,
-            request.Status);
+            request.SystemId,
+            request.CreatedByUserId,
+            request.KnowledgeTypeId,
+            request.KnowledgeStateId,
+            request.IssueId);
+
+        if (request.Tags?.Count > 0)
+        {
+            foreach (var tagName in request.Tags)
+            {
+                var tag = await _tagRepository.FindOrCreateAsync(tagName, cancellationToken);
+                entry.KnowledgeKnowledgeTags.Add(
+                    new KnowledgeKnowledgeTag(entry.KnowledgeId, tag.KnowledgeTagId));
+            }
+        }
 
         await _repository.SaveAsync(entry, cancellationToken);
         return entry;

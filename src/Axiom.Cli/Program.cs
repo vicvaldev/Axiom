@@ -9,9 +9,12 @@ using Axiom.Infrastructure;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Spectre.Console;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
 
 var connectionString = Environment.GetEnvironmentVariable("AXIOM_CONNECTION_STRING")
     ?? "Server=localhost;Database=AXIOM;Integrated Security=True;TrustServerCertificate=True;";

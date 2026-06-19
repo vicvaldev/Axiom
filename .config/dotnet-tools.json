@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "axiom.cli": {
+      "version": "0.1.0-mvp.5",
+      "commands": [
+        "axiom"
+      ],
+      "rollForward": false
+    }
+  }
+}

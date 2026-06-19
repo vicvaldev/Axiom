@@ -6,6 +6,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="MediatR" Version="12.5.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
     <PackageReference Include="Spectre.Console" Version="0.57.0" />
@@ -17,6 +21,16 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>axiom</ToolCommandName>
+    <PackageId>Axiom.Cli</PackageId>
+    <Version>0.1.0-mvp.5</Version>
+    <Authors>Victor Valdivia</Authors>
+    <Description>Axiom CLI for KnowledgeOps and operational continuity workflows.</Description>
+    <PackageTags>axiom;knowledgeops;cli;dotnet-tool</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageOutputPath>..\..\artifacts\packages</PackageOutputPath>
   </PropertyGroup>
 
 </Project>

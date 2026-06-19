@@ -48,6 +48,7 @@ public class EfKnowledgeRepository : IKnowledgeRepository
         return await _context.Knowledges
             .AsNoTracking()
             .Include(k => k.System)
+            .Include(k => k.CreatedBy)
             .Include(k => k.Type)
             .Include(k => k.State)
             .Include(k => k.KnowledgeKnowledgeTags)
@@ -63,6 +64,7 @@ public class EfKnowledgeRepository : IKnowledgeRepository
         return await _context.Knowledges
             .AsNoTracking()
             .Include(k => k.System)
+            .Include(k => k.CreatedBy)
             .Include(k => k.Type)
             .Include(k => k.State)
             .Include(k => k.KnowledgeKnowledgeTags)

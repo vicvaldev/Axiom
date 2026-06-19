@@ -1,181 +1,195 @@
-# Axiom CLI — Instrucciones para el Agente
+# Axiom CLI - Instrucciones para el Agente
 
-Eres un asistente que tiene acceso a la base de conocimiento operacional (Knowledge) y al registro de incidencias/Issues de la organización a través del CLI de Axiom.
+Eres un agente que opera Axiom, una consola de KnowledgeOps y continuidad operacional. Tu objetivo es buscar conocimiento, registrar issues y crear nuevas entradas de conocimiento usando el comando global `axiom`.
 
-## Cómo ejecutar comandos
+## Regla principal
+
+Usa siempre el comando instalado:
 
 ```powershell
-.\axiom <comando> [argumentos]
+axiom <command> [options]
 ```
 
-El CLI corre sobre .NET 10 y se conecta a SQL Server. No necesita compilación ni setup adicional.
+No uses `.\axiom`, `dotnet run` ni `dotnet tool run` salvo que el usuario te indique explícitamente que estás trabajando dentro del repo y quiere validar desarrollo local.
 
----
+Para consumo de agente, prefiere siempre `--json` en comandos de lectura y creación. La salida JSON usa `camelCase` y no mezcla tablas ni texto decorativo.
 
-## Comandos disponibles
+## Preparar datos demo
 
-### 1. Buscar en la base de conocimiento
+Si el usuario quiere una demo, poblar datos iniciales o dejar Axiom listo para pruebas:
 
-```
-.\axiom knowledge search <texto>
-```
-
-Busca entradas de conocimiento cuyo título, resumen o contenido contengan el texto indicado.
-
-**Output:** Una tabla con columnas `Id`, `Title`, `System`, `Type`, `State`, `Tags`, `Updated`.
-
-**Interpretación:** Si la tabla tiene filas, existían entradas relacionadas. Si solo muestra los encabezados (sin filas), no se encontraron resultados.
-
-El `Id` (primeros 8 caracteres) identifica cada entrada. Se puede usar el GUID completo para ver el detalle.
-
----
-
-### 2. Ver detalle de una entrada de conocimiento
-
-```
-.\axiom knowledge show <guid>
+```powershell
+axiom startup --demo --json
 ```
 
-**Output:** Un panel con: Title, Summary, System, Type, State, Created By, Tags, Version, Created, Updated, Content.
+Este comando es idempotente: puede ejecutarse varias veces sin duplicar los datos base. Crea usuarios, sistemas EAI, tipos, estados, issues y knowledge entries de ejemplo en español.
 
-Usa este comando cuando el agente necesite leer el contenido completo de una entrada.
+## Lookups de datos maestros
 
-**Si el GUID no existe:**
-```
-Knowledge entry not found.
-```
+Antes de crear registros, obtén referencias con JSON:
 
----
-
-### 3. Listar todas las entradas de conocimiento
-
-```
-.\axiom knowledge list
+```powershell
+axiom user list --json
+axiom system list --json
+axiom knowledge-type list --json
+axiom knowledge-state list --json
+axiom issue-state list --json
 ```
 
-Lista todas las entradas de conocimiento. Misma tabla que `search`.
+Preferencia para crear registros:
 
----
+- Usa `--system-eai` en vez de `--system-id`.
+- Usa `--created-by-email` en vez de `--created-by`.
+- Usa `--type-code` para knowledge.
+- Usa `--state-code` para knowledge e issues.
+- No mezcles ID y clave natural para la misma referencia. Por ejemplo, no uses `--system-id` y `--system-eai` juntos.
 
-### 4. Ver detalle de un Issue
+## Buscar conocimiento
 
-```
-.\axiom issue show <guid>
-```
+Para buscar knowledge entries:
 
-**Output:** Un panel con: Summary, System, State, RITM, Incident, Created By, Created, Resolved, Problem, Analysis, Resolution.
-
-Usa este comando cuando el usuario pregunte por un Issue específico o cuando tengas un GUID de Issue.
-
-**Si el GUID no existe:**
-```
-Issue not found.
+```powershell
+axiom knowledge search "<texto>" --json
 ```
 
----
+Interpreta el resultado:
 
-### 5. Listar Issues
+- Array con elementos: hay entradas relacionadas.
+- Array vacío `[]`: no hay coincidencias.
+- Usa `knowledgeId` completo para pedir detalle.
 
-```
-.\axiom issue list
-```
+Para listar todo:
 
-Lista todos los Issues en una tabla con columnas: `Id`, `Summary`, `System`, `State`, `RITM`, `Incident`, `Created`.
-
----
-
-### 6. Crear una entrada de conocimiento
-
-```
-.\axiom knowledge create --system-id <id> --title "<título>" --content "<contenido>" --created-by <userId> --type-id <id> --state-id <id> [--summary "<resumen>"] [--tags "<tag1>,<tag2>"] [--issue-id <guid>]
+```powershell
+axiom knowledge list --json
 ```
 
-| Opción | Requerido | Descripción |
-|---|---|---|
-| `--system-id` | Sí | ID del sistema asociado (long) |
-| `--title` | Sí | Título de la entrada |
-| `--content` | Sí | Contenido principal |
-| `--created-by` | Sí | GUID del usuario creador |
-| `--type-id` | Sí | ID del tipo de conocimiento (long) |
-| `--state-id` | Sí | ID del estado de conocimiento (int) |
-| `--summary` | No | Resumen corto (máx 200 caracteres) |
-| `--tags` | No | Tags separados por coma. Ej: `iis,reinicio` |
-| `--issue-id` | No | GUID del Issue asociado (opcional) |
+Para ver detalle:
 
-**Output:**
-```
-Knowledge created: 177ed8be-6ec1-49f6-8439-8164aa2ea180
-  Title: Cómo reiniciar IIS
-  System ID: 1
-  Type ID: 2
-  State ID: 1
+```powershell
+axiom knowledge show <knowledgeId> --json
 ```
 
-El GUID se usa para referenciar la entrada después.
+Campos útiles: `title`, `summary`, `content`, `systemName`, `typeName`, `stateName`, `createdByName`, `tags`, `issueId`.
 
----
+## Buscar o revisar issues
 
-### 7. Crear un Issue
+Listar todos los issues:
 
-```
-.\axiom issue create --system-id <id> --summary "<resumen>" --problem "<problema>" --state-id <id> --created-by <userId> [--analysis "<análisis>"] [--resolution "<resolución>"] [--ritm-number "<número>"] [--incident-number "<número>"]
-```
-
-| Opción | Requerido | Descripción |
-|---|---|---|
-| `--system-id` | Sí | ID del sistema asociado (long) |
-| `--summary` | Sí | Resumen del Issue |
-| `--problem` | Sí | Descripción del problema |
-| `--state-id` | Sí | ID del estado del Issue (int) |
-| `--created-by` | Sí | GUID del usuario creador |
-| `--analysis` | No | Análisis de causa raíz |
-| `--resolution` | No | Pasos de resolución |
-| `--ritm-number` | No | Número de RITM (ej. `RITM001234`) |
-| `--incident-number` | No | Número de Incidente (ej. `INC005678`) |
-
-**Output:**
-```
-Issue created: 74fc9278-5376-440d-9d72-38b68d5ff3de
-  Summary: Error 500 al cargar módulo de facturación
-  System ID: 1
-  State ID: 1
+```powershell
+axiom issue list --json
 ```
 
----
+Filtrar por sistema EAI:
 
-## Flujos típicos para el agente
-
-### "Busca información sobre X"
-
-1. Ejecuta `.\axiom knowledge search <X>`
-2. Si hay resultados, revísalos. Si alguno parece relevante, ejecuta `.\axiom knowledge show <guid>` para leerlo completo
-3. Responde al usuario con lo que encontraste
-
-### "Registra esto en la base de conocimiento"
-
-1. Ejecuta `.\axiom knowledge create` con los datos proporcionados por el usuario
-2. Confirma al usuario el GUID y los datos creados
-
-### "Qué Issues tenemos registrados?"
-
-1. Ejecuta `.\axiom issue list` para ver todos los Issues
-
-### "Tenemos algún Issue sobre el sistema X?"
-
-```
-.\axiom issue list --eai <código_eai>
+```powershell
+axiom issue list --eai EAI001 --json
 ```
 
-Lista Issues filtrados por el código EAI del sistema. Ej: `.\axiom issue list --eai EAI001`.
+Ver detalle:
 
-Para buscar Issues relacionados a un tema concreto, usa `.\axiom knowledge search <término>` ya que los Knowledge suelen estar vinculados a Issues.
+```powershell
+axiom issue show <issueId> --json
+```
 
----
+Campos útiles: `summary`, `problem`, `analysis`, `resolution`, `systemName`, `stateName`, `ritmNumber`, `incidentNumber`, `createdAt`, `resolvedAt`.
 
-## Consideraciones importantes
+## Crear issues
 
-1. **Búsqueda sin resultados**: Si `knowledge search` devuelve una tabla vacía (solo encabezados), significa que no hay entradas que coincidan con la búsqueda
-2. **GUID no encontrado**: Si `knowledge show` o `issue show` no encuentran el GUID, el mensaje es `not found` en rojo
-3. **IDs truncados**: En las tablas de listado, el `Id` muestra solo los primeros 8 caracteres del GUID. Para operaciones como `show`, usa el GUID completo
-4. **IDs de referencia**: Los comandos `create` usan IDs numéricos para System, Type y State. Estos deben obtenerse consultando las tablas de referencia correspondientes
-5. **Errores de conexión**: Si la base de datos no está disponible, el CLI mostrará un error de SQL Server
+Usa claves naturales cuando estén disponibles:
+
+```powershell
+axiom issue create --system-eai EAI003 --state-code OPEN --created-by-email ops.agent@axiom.local --summary "Resumen del incidente" --problem "Descripción del problema" --analysis "Análisis inicial" --resolution "Acción tomada" --ritm-number "RITM001234" --incident-number "INC005678" --json
+```
+
+Requeridos:
+
+- `--summary`
+- `--problem`
+- Una referencia de sistema: `--system-eai` o `--system-id`
+- Una referencia de estado: `--state-code` o `--state-id`
+- Una referencia de usuario: `--created-by-email` o `--created-by`
+
+Opcionales: `--analysis`, `--resolution`, `--ritm-number`, `--incident-number`.
+
+Después de crear, conserva el `issueId` devuelto para relacionarlo con knowledge entries.
+
+## Crear knowledge entries
+
+Usa claves naturales cuando estén disponibles:
+
+```powershell
+axiom knowledge create --system-eai EAI001 --type-code RUNBOOK --state-code PUBLISHED --created-by-email ops.agent@axiom.local --title "Título operativo" --summary "Resumen corto" --content "Contenido completo" --tags "runbook,login,produccion" --issue-id <issueId> --json
+```
+
+Requeridos:
+
+- `--title`
+- `--content`
+- Una referencia de sistema: `--system-eai` o `--system-id`
+- Una referencia de tipo: `--type-code` o `--type-id`
+- Una referencia de estado: `--state-code` o `--state-id`
+- Una referencia de usuario: `--created-by-email` o `--created-by`
+
+Opcionales: `--summary`, `--tags`, `--issue-id`.
+
+Usa `--tags` como lista separada por coma sin espacios problemáticos, por ejemplo:
+
+```powershell
+--tags "portal-clientes,login,runbook"
+```
+
+## Flujos recomendados
+
+### Usuario pregunta por un problema
+
+1. Ejecuta `axiom knowledge search "<terminos>" --json`.
+2. Si hay resultados, revisa los mejores con `axiom knowledge show <knowledgeId> --json`.
+3. Si corresponde, busca issues relacionados con `axiom issue list --eai <EAI> --json`.
+4. Responde con resumen, pasos y referencias encontradas.
+
+### Usuario reporta un incidente nuevo
+
+1. Ejecuta lookups si falta algún EAI, estado o usuario.
+2. Crea el issue con `axiom issue create ... --json`.
+3. Si se obtiene resolución o aprendizaje reutilizable, crea una knowledge entry relacionada con `--issue-id`.
+4. Devuelve al usuario `issueId`, `knowledgeId` si aplica, y resumen de lo registrado.
+
+### Usuario pide registrar conocimiento
+
+1. Confirma o infiere sistema, tipo, estado y autor desde lookups.
+2. Crea la entrada con `axiom knowledge create ... --json`.
+3. Devuelve `knowledgeId`, título, sistema y estado.
+
+## Manejo de errores
+
+Los errores de validación con `--json` devuelven:
+
+```json
+{
+  "error": "mensaje"
+}
+```
+
+Y el proceso sale con código distinto de cero. Si recibes un error:
+
+- No inventes IDs.
+- Ejecuta los lookups necesarios.
+- Reintenta con una sola forma de referencia por campo.
+
+Errores comunes:
+
+- `Use either --system-id or --system-eai, not both.`
+- `System EAI not found: <eai>`
+- `User email not found: <email>`
+- `Knowledge type code not found: <code>`
+- `Issue state code not found: <code>`
+
+## Buenas prácticas para el agente
+
+- Prefiere JSON sobre tablas.
+- Prefiere claves naturales sobre IDs.
+- Usa `startup --demo --json` para preparar una demo reproducible.
+- No uses GUIDs truncados; los listados JSON entregan GUIDs completos.
+- No ejecutes comandos interactivos como `axiom startup` si puedes usar `axiom startup --demo --json`.
+- Si necesitas saber opciones disponibles, usa `axiom <command> --help`.

@@ -28,21 +28,44 @@
 
 ---
 
-## 2. Ejecución
+## 2. Instalación y ejecución
 
-### Wrapper script (recomendado)
+### Dotnet tool global (recomendado)
 
-```powershell
-.\axiom <command> [args]
-```
-
-El script `axiom.ps1` resuelve automáticamente la ruta del proyecto.
-
-### Directamente con dotnet
+Axiom está pensado para usarse como herramienta de consola instalada con
+`dotnet tool`. Desde el repo, primero empaqueta el CLI y luego instálalo en el
+perfil del usuario:
 
 ```powershell
-dotnet run --project src\Axiom.Cli -- <command> [args]
+dotnet pack .\src\Axiom.Cli\Axiom.Cli.csproj -c Release
+dotnet tool install --global Axiom.Cli --add-source .\artifacts\packages --version 0.1.0-mvp.5
 ```
+
+Si ya está instalado, actualiza con:
+
+```powershell
+dotnet tool update --global Axiom.Cli --add-source .\artifacts\packages --version 0.1.0-mvp.5
+```
+
+Una vez instalado, el uso recomendado es llamar directamente a `axiom`:
+
+```powershell
+axiom startup --demo
+axiom knowledge search "login" --json
+axiom issue list --json
+axiom issue create --system-eai EAI003 --state-code OPEN --created-by-email ops.agent@axiom.local --summary "Incidente" --problem "Detalle" --json
+```
+
+### Alternativa local de desarrollo
+
+El repo también incluye manifest de dotnet tools para uso local:
+
+```powershell
+dotnet pack .\src\Axiom.Cli\Axiom.Cli.csproj -c Release
+dotnet tool restore --add-source .\artifacts\packages
+```
+
+Para ejecutar comandos, usa la instalación global recomendada y llama `axiom`.
 
 ### Variable de entorno
 
@@ -66,7 +89,46 @@ Guía al usuario paso a paso para crear datos maestros iniciales:
 5. Crear estados de conocimiento (Draft, Published, Archived, Deprecated)
 
 ```powershell
-.\axiom startup
+axiom startup
+```
+
+Para demos con agentes, se puede cargar un set idempotente no interactivo:
+
+```powershell
+axiom startup --demo
+axiom startup --demo --json
+```
+
+El seed demo crea usuarios, sistemas EAI, estados, tipos, issues y knowledge
+entries de Operaciones TI en español. Puede ejecutarse varias veces sin duplicar
+los datos base.
+
+### Salida JSON y lookups para agentes
+
+Los comandos de lectura y creación soportan `--json` para salida machine-readable:
+
+```powershell
+axiom knowledge list --json
+axiom knowledge search "login" --json
+axiom issue list --json
+axiom issue show <guid> --json
+```
+
+Datos maestros:
+
+```powershell
+axiom user list --json
+axiom system list --json
+axiom knowledge-type list --json
+axiom knowledge-state list --json
+axiom issue-state list --json
+```
+
+`knowledge create` e `issue create` aceptan IDs o claves naturales:
+
+```powershell
+axiom knowledge create --system-eai EAI001 --type-code RUNBOOK --state-code PUBLISHED --created-by-email ops.agent@axiom.local --title "Runbook" --content "Contenido" --json
+axiom issue create --system-eai EAI003 --state-code OPEN --created-by-email ops.agent@axiom.local --summary "Incidente" --problem "Detalle" --json
 ```
 
 ### `knowledge create`
@@ -78,12 +140,19 @@ Crea una entrada de conocimiento. **VersionNumber siempre 1**, FK a datos maestr
 | `--title` | Sí | `string` | Título (max 500 chars) |
 | `--content` | Sí | `string` | Contenido principal |
 | `--summary` | No | `string` | Resumen corto |
-| `--system-id` | Sí | `long` | ID del sistema asociado |
-| `--type-id` | Sí | `long` | ID del tipo de conocimiento |
-| `--state-id` | Sí | `int` | ID del estado de conocimiento |
-| `--created-by` | Sí | `guid` | ID del usuario creador |
+| `--system-id` | Sí* | `long` | ID del sistema asociado |
+| `--system-eai` | Sí* | `string` | Código EAI del sistema asociado |
+| `--type-id` | Sí* | `long` | ID del tipo de conocimiento |
+| `--type-code` | Sí* | `string` | Código del tipo de conocimiento |
+| `--state-id` | Sí* | `int` | ID del estado de conocimiento |
+| `--state-code` | Sí* | `string` | Código del estado de conocimiento |
+| `--created-by` | Sí* | `guid` | ID del usuario creador |
+| `--created-by-email` | Sí* | `string` | Email del usuario creador |
 | `--tags` | No | `string` | Tags separados por coma. Ej: `"iis,reinicio,produccion"` |
 | `--issue-id` | No | `guid` | ID del issue relacionado |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+`*` Debe usarse una sola forma por referencia: ID o clave natural, no ambas.
 
 **Output:**
 ```
@@ -97,7 +166,7 @@ Knowledge entry created: <guid>
 Lista todas las entradas de conocimiento activas en una tabla.
 
 ```powershell
-.\axiom knowledge list
+axiom knowledge list
 ```
 
 Columnas: `Id` (8 chars), `Title`, `System`, `Type`, `State`, `Version`, `Updated`.
@@ -107,7 +176,7 @@ Columnas: `Id` (8 chars), `Title`, `System`, `Type`, `State`, `Version`, `Update
 Muestra detalle completo de una entrada por GUID.
 
 ```powershell
-.\axiom knowledge show 177ed8be-6ec1-49f6-8439-8164aa2ea180
+axiom knowledge show 177ed8be-6ec1-49f6-8439-8164aa2ea180
 ```
 
 Panel con: Title, Summary, Content, System, Type, State, Author, Tags, Version, IssueId, Created, Updated.
@@ -119,7 +188,7 @@ Si no existe: `Knowledge entry not found.`
 Busca entradas por texto en **Title**, **Summary** y **Content** (case-insensitive).
 
 ```powershell
-.\axiom knowledge search "IIS"
+axiom knowledge search "IIS"
 ```
 
 Misma tabla que `list`.
@@ -132,13 +201,19 @@ Crea un registro de issue/incidencia. FK a datos maestros existentes.
 |---|---|---|---|
 | `--summary` | Sí | `string` | Resumen (max 200 chars) |
 | `--problem` | Sí | `string` | Descripción del problema |
-| `--system-id` | Sí | `long` | ID del sistema asociado |
-| `--state-id` | Sí | `int` | ID del estado de issue |
-| `--created-by` | Sí | `guid` | ID del usuario creador |
+| `--system-id` | Sí* | `long` | ID del sistema asociado |
+| `--system-eai` | Sí* | `string` | Código EAI del sistema asociado |
+| `--state-id` | Sí* | `int` | ID del estado de issue |
+| `--state-code` | Sí* | `string` | Código del estado de issue |
+| `--created-by` | Sí* | `guid` | ID del usuario creador |
+| `--created-by-email` | Sí* | `string` | Email del usuario creador |
 | `--analysis` | No | `string` | Análisis de causa raíz |
 | `--resolution` | No | `string` | Pasos de resolución |
 | `--ritm-number` | No | `string` | Número RITM (único nullable) |
 | `--incident-number` | No | `string` | Número de incidencia (único nullable) |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+`*` Debe usarse una sola forma por referencia: ID o clave natural, no ambas.
 
 **Output:**
 ```
@@ -152,8 +227,8 @@ Issue created: <guid>
 Lista todos los issues activos en una tabla. Opcionalmente filtra por código EAI del sistema.
 
 ```powershell
-.\axiom issue list
-.\axiom issue list --eai EAI001
+axiom issue list
+axiom issue list --eai EAI001
 ```
 
 | Opción | Requerido | Tipo | Descripción |
@@ -167,7 +242,7 @@ Columnas: `Id` (8 chars), `Summary`, `System`, `State`, `RITM`, `Incident`, `Cre
 Muestra detalle completo de un issue por GUID.
 
 ```powershell
-.\axiom issue show 74fc9278-5376-440d-9d72-38b68d5ff3de
+axiom issue show 74fc9278-5376-440d-9d72-38b68d5ff3de
 ```
 
 Panel con: Summary, Problem, Analysis, Resolution, System, State, RITM, Incident, CreatedBy, Created, ResolvedAt.
@@ -248,7 +323,8 @@ Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). La
 | `IKnowledgeRepository` | `SaveAsync`, `GetByIdAsync`, `SearchAsync`, `GetAllAsync`, `DeleteAsync` |
 | `IIssueRepository` | `SaveAsync`, `GetByIdAsync`, `GetAllAsync` |
 | `ITagRepository` | `FindOrCreateAsync(string)` |
-| `IStartupService` | `CreateUserAsync`, `CreateSystemAsync`, `CreateKnowledgeTypeAsync`, `CreateIssueStateAsync`, `CreateKnowledgeStateAsync` |
+| `IStartupService` | `CreateUserAsync`, `CreateSystemAsync`, `CreateKnowledgeTypeAsync`, `CreateIssueStateAsync`, `CreateKnowledgeStateAsync`, `SeedDemoDataAsync` |
+| `IReferenceDataService` | Listado y resolución de usuarios, sistemas, tipos y estados por claves naturales |
 
 ---
 
@@ -274,7 +350,7 @@ Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). La
 |---|---|
 | `Axiom.Domain.Tests` | 10 tests (entidades Knowledge e Issue) |
 | `Axiom.Application.Tests` | 3 tests (handlers con NSubstitute) |
-| `Axiom.Integration.Tests` | 11 tests (EF Core InMemory — startup service, repositorios Knowledge e Issue) |
+| `Axiom.Integration.Tests` | 15 tests (EF Core InMemory — startup service, reference data service, repositorios Knowledge e Issue) |
 
 ```bash
 dotnet test                              # Todos los tests
@@ -303,6 +379,6 @@ Tests de integración usan proveedor InMemory de EF Core con datos maestros seed
 ```bash
 dotnet build                          # Compila todo
 dotnet build src\Axiom.Cli            # Solo el CLI
-dotnet run --project src\Axiom.Cli -- knowledge list
-.\axiom knowledge list                # Con wrapper script
+dotnet pack .\src\Axiom.Cli\Axiom.Cli.csproj -c Release
+axiom knowledge list                  # Uso recomendado con dotnet tool global
 ```

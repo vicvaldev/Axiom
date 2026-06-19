@@ -1,3 +1,4 @@
+using Axiom.Application.Dtos;
 using Axiom.Domain.Entities;
 
 namespace Axiom.Application.Interfaces;
@@ -9,4 +10,5 @@ public interface IStartupService
     Task<KnowledgeType> CreateKnowledgeTypeAsync(string code, string name, CancellationToken ct);
     Task<IssueState> CreateIssueStateAsync(string code, string name, CancellationToken ct);
     Task<KnowledgeState> CreateKnowledgeStateAsync(string code, string name, CancellationToken ct);
+    Task<DemoSeedResultDto> SeedDemoDataAsync(CancellationToken ct);
 }

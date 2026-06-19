@@ -70,6 +70,22 @@ public class EfStartupServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ShouldSeedDemoDataIdempotently()
+    {
+        await _svc.SeedDemoDataAsync(default);
+        await _svc.SeedDemoDataAsync(default);
+
+        (await _context.Users.CountAsync(u => u.Email == "victor.valdivia.dev@gmail.com")).Should().Be(1);
+        (await _context.Users.CountAsync(u => u.Email == "ops.agent@axiom.local")).Should().Be(1);
+        (await _context.Systems.CountAsync()).Should().Be(3);
+        (await _context.KnowledgeTypes.CountAsync()).Should().Be(3);
+        (await _context.IssueStates.CountAsync()).Should().Be(4);
+        (await _context.KnowledgeStates.CountAsync()).Should().Be(3);
+        (await _context.Issues.CountAsync()).Should().Be(2);
+        (await _context.Knowledges.CountAsync()).Should().Be(3);
+    }
+
+    [Fact]
     public async Task ShouldCreateKnowledgeType()
     {
         var kt = await _svc.CreateKnowledgeTypeAsync("DOCS", "Documentation", default);

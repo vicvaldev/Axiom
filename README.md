@@ -87,6 +87,45 @@ Guía al usuario paso a paso para crear datos maestros iniciales:
 .\axiom startup
 ```
 
+Para demos con agentes, se puede cargar un set idempotente no interactivo:
+
+```powershell
+axiom startup --demo
+axiom startup --demo --json
+```
+
+El seed demo crea usuarios, sistemas EAI, estados, tipos, issues y knowledge
+entries de Operaciones TI en español. Puede ejecutarse varias veces sin duplicar
+los datos base.
+
+### Salida JSON y lookups para agentes
+
+Los comandos de lectura y creación soportan `--json` para salida machine-readable:
+
+```powershell
+axiom knowledge list --json
+axiom knowledge search "login" --json
+axiom issue list --json
+axiom issue show <guid> --json
+```
+
+Datos maestros:
+
+```powershell
+axiom user list --json
+axiom system list --json
+axiom knowledge-type list --json
+axiom knowledge-state list --json
+axiom issue-state list --json
+```
+
+`knowledge create` e `issue create` aceptan IDs o claves naturales:
+
+```powershell
+axiom knowledge create --system-eai EAI001 --type-code RUNBOOK --state-code PUBLISHED --created-by-email ops.agent@axiom.local --title "Runbook" --content "Contenido" --json
+axiom issue create --system-eai EAI003 --state-code OPEN --created-by-email ops.agent@axiom.local --summary "Incidente" --problem "Detalle" --json
+```
+
 ### `knowledge create`
 
 Crea una entrada de conocimiento. **VersionNumber siempre 1**, FK a datos maestros existentes.
@@ -266,7 +305,8 @@ Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). La
 | `IKnowledgeRepository` | `SaveAsync`, `GetByIdAsync`, `SearchAsync`, `GetAllAsync`, `DeleteAsync` |
 | `IIssueRepository` | `SaveAsync`, `GetByIdAsync`, `GetAllAsync` |
 | `ITagRepository` | `FindOrCreateAsync(string)` |
-| `IStartupService` | `CreateUserAsync`, `CreateSystemAsync`, `CreateKnowledgeTypeAsync`, `CreateIssueStateAsync`, `CreateKnowledgeStateAsync` |
+| `IStartupService` | `CreateUserAsync`, `CreateSystemAsync`, `CreateKnowledgeTypeAsync`, `CreateIssueStateAsync`, `CreateKnowledgeStateAsync`, `SeedDemoDataAsync` |
+| `IReferenceDataService` | Listado y resolución de usuarios, sistemas, tipos y estados por claves naturales |
 
 ---
 
@@ -292,7 +332,7 @@ Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). La
 |---|---|
 | `Axiom.Domain.Tests` | 10 tests (entidades Knowledge e Issue) |
 | `Axiom.Application.Tests` | 3 tests (handlers con NSubstitute) |
-| `Axiom.Integration.Tests` | 11 tests (EF Core InMemory — startup service, repositorios Knowledge e Issue) |
+| `Axiom.Integration.Tests` | 15 tests (EF Core InMemory — startup service, reference data service, repositorios Knowledge e Issue) |
 
 ```bash
 dotnet test                              # Todos los tests

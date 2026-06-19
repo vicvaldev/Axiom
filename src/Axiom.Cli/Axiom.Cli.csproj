@@ -24,7 +24,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>axiom</ToolCommandName>
     <PackageId>Axiom.Cli</PackageId>
-    <Version>0.1.0-mvp.4</Version>
+    <Version>0.1.0-mvp.5</Version>
     <Authors>Victor Valdivia</Authors>
     <Description>Axiom CLI for KnowledgeOps and operational continuity workflows.</Description>
     <PackageTags>axiom;knowledgeops;cli;dotnet-tool</PackageTags>

@@ -222,7 +222,10 @@ issueCreateCmd.SetAction((ParseResult result) =>
 
 issueCmd.Subcommands.Add(issueCreateCmd);
 
-var eaiOpt = new Option<string>("--eai", "Filter by system EAI code");
+var eaiOpt = new Option<string>("--eai")
+{
+    Description = "Filter by system EAI code"
+};
 var issueListCmd = new Command("list", "List all issues");
 issueListCmd.Options.Add(eaiOpt);
 issueListCmd.SetAction((ParseResult result) =>
@@ -394,16 +397,20 @@ startupCmd.SetAction((ParseResult _) =>
         {
             ctx.Spinner(Spinner.Known.Star);
 
+            var persistedUserIds = new Dictionary<Guid, Guid>();
+
             foreach (var u in users)
             {
-                svc.CreateUserAsync(u.Email, u.Name, ct).Wait();
+                var persistedUser = svc.CreateUserAsync(u.Email, u.Name, ct).Result;
+                persistedUserIds[u.UserId] = persistedUser.UserId;
                 totalUsers++;
                 ctx.Status($"Created user: {u.Email}");
             }
 
             foreach (var s in systems)
             {
-                svc.CreateSystemAsync(s.EAI, s.Name, s.OwnerUserId, ct).Wait();
+                var ownerUserId = persistedUserIds[s.OwnerUserId];
+                svc.CreateSystemAsync(s.EAI, s.Name, ownerUserId, ct).Wait();
                 totalSystems++;
                 ctx.Status($"Created system: {s.Name}");
             }

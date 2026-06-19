@@ -53,6 +53,23 @@ public class EfStartupServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ShouldReturnExistingReferenceDataOnRepeatedStartup()
+    {
+        var firstUser = await _svc.CreateUserAsync("repeat@test.com", "Repeat User", default);
+        var secondUser = await _svc.CreateUserAsync("repeat@test.com", "Repeat User", default);
+
+        var firstSystem = await _svc.CreateSystemAsync("EAI-REPEAT", "Repeat System", firstUser.UserId, default);
+        var secondSystem = await _svc.CreateSystemAsync("EAI-REPEAT", "Repeat System", secondUser.UserId, default);
+        var userCount = await _context.Users.CountAsync(u => u.Email == "repeat@test.com");
+        var systemCount = await _context.Systems.CountAsync(s => s.EAI == "EAI-REPEAT");
+
+        secondUser.UserId.Should().Be(firstUser.UserId);
+        secondSystem.SystemId.Should().Be(firstSystem.SystemId);
+        userCount.Should().Be(1);
+        systemCount.Should().Be(1);
+    }
+
+    [Fact]
     public async Task ShouldCreateKnowledgeType()
     {
         var kt = await _svc.CreateKnowledgeTypeAsync("DOCS", "Documentation", default);

@@ -44,6 +44,24 @@ El script `axiom.ps1` resuelve automáticamente la ruta del proyecto.
 dotnet run --project src\Axiom.Cli -- <command> [args]
 ```
 
+### Herramienta local de dotnet
+
+Para el MVP/demo, el CLI se puede empaquetar e instalar como una herramienta
+local de desarrollo usando el manifest del repo:
+
+```powershell
+dotnet pack .\src\Axiom.Cli\Axiom.Cli.csproj -c Release
+dotnet tool restore --add-source .\artifacts\packages
+dotnet tool run axiom -- --help
+```
+
+Luego puedes ejecutar comandos asi:
+
+```powershell
+dotnet tool run axiom -- knowledge list
+dotnet tool run axiom -- issue list
+```
+
 ### Variable de entorno
 
 La conexión a BD se lee de `AXIOM_CONNECTION_STRING`. Si no está definida, se usa:

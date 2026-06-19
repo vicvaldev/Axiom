@@ -15,6 +15,7 @@ public static class DependencyInjection
         services.AddScoped<IKnowledgeRepository, EfKnowledgeRepository>();
         services.AddScoped<IIssueRepository, EfIssueRepository>();
         services.AddScoped<ITagRepository, EfTagRepository>();
+        services.AddScoped<IStartupService, EfStartupService>();
 
         return services;
     }

@@ -30,21 +30,7 @@
 
 ## 2. Ejecución
 
-### Wrapper script (recomendado)
-
-```powershell
-.\axiom <command> [args]
-```
-
-El script `axiom.ps1` resuelve automáticamente la ruta del proyecto.
-
-### Directamente con dotnet
-
-```powershell
-dotnet run --project src\Axiom.Cli -- <command> [args]
-```
-
-### Herramienta local de dotnet
+### Herramienta local de dotnet (Recomendado)
 
 Para el MVP/demo, el CLI se puede empaquetar e instalar como una herramienta
 local de desarrollo usando el manifest del repo:

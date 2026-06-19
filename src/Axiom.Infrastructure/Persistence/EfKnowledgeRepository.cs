@@ -46,13 +46,20 @@ public class EfKnowledgeRepository : IKnowledgeRepository
 
     public async Task<IEnumerable<KnowledgeEntry>> SearchAsync(string query, CancellationToken cancellationToken = default)
     {
-        return await _context.KnowledgeEntries
+        var dbResults = await _context.KnowledgeEntries
             .Where(e =>
                 e.Title.Contains(query) ||
                 e.Description.Contains(query) ||
-                e.Content.Contains(query) ||
-                e.Tags.Contains(query))
+                e.Content.Contains(query))
             .ToListAsync(cancellationToken);
+
+        return dbResults
+            .Where(e =>
+                e.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                e.Description.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                e.Content.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                e.Tags.Any(t => t.Contains(query, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)

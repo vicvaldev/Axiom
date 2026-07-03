@@ -26,7 +26,8 @@ public class CreateKnowledgeHandler : IRequestHandler<CreateKnowledgeCommand, Kn
             request.CreatedByUserId,
             request.KnowledgeTypeId,
             request.KnowledgeStateId,
-            request.IssueId);
+            request.IssueId,
+            request.KnowledgeId);
 
         if (request.Tags?.Count > 0)
         {

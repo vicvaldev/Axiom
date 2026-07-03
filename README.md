@@ -12,7 +12,7 @@
 | Capa | Proyecto | Dependencias | Propósito |
 |---|---|---|---|
 | **Domain** | `Axiom.Domain` | Ninguna | Entidades (9), Value Objects, Excepciones |
-| **Application** | `Axiom.Application` | Domain | Casos de uso CQRS (4 commands, 5 queries, 9 handlers), validación FluentValidation, interfaces de repositorio, DTOs de proyección |
+| **Application** | `Axiom.Application` | Domain | Casos de uso CQRS (5 commands, 5 queries, 11 handlers), validación FluentValidation, interfaces de repositorio, DTOs de proyección |
 | **Infrastructure** | `Axiom.Infrastructure` | Application + Domain | Persistencia EF Core + SQL Server, migraciones, configuraciones por entidad, repositorios, startup service |
 | **Entrypoint** | `Axiom.Cli` | Application + Infrastructure | CLI con System.CommandLine + Spectre.Console + MediatR |
 
@@ -30,42 +30,10 @@
 
 ## 2. Instalación y ejecución
 
-### Dotnet tool global (recomendado)
+### Requisitos
 
-Axiom está pensado para usarse como herramienta de consola instalada con
-`dotnet tool`. Desde el repo, primero empaqueta el CLI y luego instálalo en el
-perfil del usuario:
-
-```powershell
-dotnet pack .\src\Axiom.Cli\Axiom.Cli.csproj -c Release
-dotnet tool install --global Axiom.Cli --add-source .\artifacts\packages --version 0.1.0-mvp.5
-```
-
-Si ya está instalado, actualiza con:
-
-```powershell
-dotnet tool update --global Axiom.Cli --add-source .\artifacts\packages --version 0.1.0-mvp.5
-```
-
-Una vez instalado, el uso recomendado es llamar directamente a `axiom`:
-
-```powershell
-axiom startup --demo
-axiom knowledge search "login" --json
-axiom issue list --json
-axiom issue create --system-eai EAI003 --state-code OPEN --created-by-email ops.agent@axiom.local --summary "Incidente" --problem "Detalle" --json
-```
-
-### Alternativa local de desarrollo
-
-El repo también incluye manifest de dotnet tools para uso local:
-
-```powershell
-dotnet pack .\src\Axiom.Cli\Axiom.Cli.csproj -c Release
-dotnet tool restore --add-source .\artifacts\packages
-```
-
-Para ejecutar comandos, usa la instalación global recomendada y llama `axiom`.
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- SQL Server (local o remoto) — opcional si se usa solo el almacén JSON local
 
 ### Variable de entorno
 
@@ -75,33 +43,93 @@ La conexión a BD se lee de `AXIOM_CONNECTION_STRING`. Si no está definida, se 
 Server=localhost;Database=AXIOM;Integrated Security=True;TrustServerCertificate=True;
 ```
 
+### Instalación como dotnet tool global (recomendado)
+
+Axiom está pensado para usarse como herramienta de consola instalada con
+`dotnet tool`. Desde el repo, empaqueta el CLI e instálalo:
+
+```bash
+dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
+dotnet tool install --global Axiom.Cli --add-source artifacts/packages --version 1.0.0
+```
+
+Para actualizar una instalación existente:
+
+```bash
+dotnet tool update --global Axiom.Cli --add-source artifacts/packages --version 1.0.0
+```
+
+Una vez instalado globalmente, usa directamente el comando `axiom`:
+
+```bash
+axiom startup --demo
+axiom knowledge search "login" --json
+axiom issue list --json
+axiom issue create --system-eai EAI003 --state-code OPEN --created-by-email ops.agent@axiom.local --summary "Incidente" --problem "Detalle" --json
+```
+
+### Alternativa: herramienta local (development)
+
+El repo incluye un manifest de dotnet tools para uso local sin instalación global:
+
+```bash
+dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
+dotnet tool restore --add-source artifacts/packages
+```
+
+Luego ejecuta comandos con `dotnet axiom`:
+
+```bash
+dotnet axiom startup --demo
+dotnet axiom knowledge list
+```
+
+### Alternativa: ejecución directa con `dotnet run`
+
+Sin necesidad de empaquetar ni instalar:
+
+```bash
+dotnet run --project src/Axiom.Cli -- startup --demo
+dotnet run --project src/Axiom.Cli -- knowledge list
+dotnet run --project src/Axiom.Cli -- knowledge search "IIS" --json
+```
+
+### Almacén JSON local (offline-first)
+
+Cuando la base de datos no está disponible, Axiom guarda los datos en un
+almacén JSON local (`~/.axiom/store/`). Todos los comandos de lectura y
+escritura detectan automáticamente la caída de BD y operan contra este
+almacén, mostrando un aviso `[yellow]DB unavailable[/]`. No requiere
+configuración adicional.
+
 ---
 
 ## 3. Comandos CLI
 
 ### `startup` — Asistente interactivo
 
-Guía al usuario paso a paso para crear datos maestros iniciales:
-1. Crear usuario (Email + Name)
-2. Crear sistema (EAI + Name)
-3. Crear tipos de conocimiento (Documentation, Runbook, Troubleshooting, Reference, Tutorial, Other)
-4. Crear estados de issue (Open, InProgress, Resolved, Closed)
-5. Crear estados de conocimiento (Draft, Published, Archived, Deprecated)
+Inicializa los datos maestros necesarios para operar Axiom.
 
-```powershell
+**Modo interactivo (sin flags):** Guía al usuario paso a paso para crear:
+1. Usuarios (Email + Name)
+2. Sistemas (EAI + Name + Owner)
+3. Tipos de conocimiento (Code + Name)
+4. Estados de issue (Code + Name)
+5. Estados de conocimiento (Code + Name)
+
+```bash
 axiom startup
 ```
 
-Para demos con agentes, se puede cargar un set idempotente no interactivo:
+**Modo demo (`--demo`):** Carga un set idempotente de datos de demostración
+sin interacción. Crea usuarios, sistemas EAI, estados, tipos, issues y
+knowledge entries de Operaciones TI en español. Puede ejecutarse varias
+veces sin duplicar los datos base.
 
-```powershell
+```bash
 axiom startup --demo
 axiom startup --demo --json
 ```
-
-El seed demo crea usuarios, sistemas EAI, estados, tipos, issues y knowledge
-entries de Operaciones TI en español. Puede ejecutarse varias veces sin duplicar
-los datos base.
 
 ### Salida JSON y lookups para agentes
 
@@ -124,11 +152,13 @@ axiom knowledge-state list --json
 axiom issue-state list --json
 ```
 
-`knowledge create` e `issue create` aceptan IDs o claves naturales:
+`knowledge create`, `knowledge update`, `issue create` e `issue update` aceptan IDs o claves naturales:
 
 ```powershell
 axiom knowledge create --system-eai EAI001 --type-code RUNBOOK --state-code PUBLISHED --created-by-email ops.agent@axiom.local --title "Runbook" --content "Contenido" --json
+axiom knowledge update <guid> --system-eai EAI001 --type-code RUNBOOK --state-code PUBLISHED --title "Runbook v2" --content "Actualizado" --json
 axiom issue create --system-eai EAI003 --state-code OPEN --created-by-email ops.agent@axiom.local --summary "Incidente" --problem "Detalle" --json
+axiom issue update <guid> --system-eai EAI003 --state-code RESOLVED --summary "Incidente" --problem "Detalle" --resolution "Solucionado" --json
 ```
 
 ### `knowledge create`
@@ -151,6 +181,7 @@ Crea una entrada de conocimiento. **VersionNumber siempre 1**, FK a datos maestr
 | `--tags` | No | `string` | Tags separados por coma. Ej: `"iis,reinicio,produccion"` |
 | `--issue-id` | No | `guid` | ID del issue relacionado |
 | `--json` | No | `bool` | Devuelve salida machine-readable |
+| `--wizard` | No | `bool` | Lanza asistente interactivo |
 
 `*` Debe usarse una sola forma por referencia: ID o clave natural, no ambas.
 
@@ -160,6 +191,42 @@ Knowledge entry created: <guid>
   Title: <title>
   Version: 1
 ```
+
+**Modo interactivo (`--wizard`):** Guía al usuario paso a paso con menús
+de selección para elegir usuario, sistema, tipo y estado; luego solicita
+título, resumen, contenido, tags e issue ID. Opcionalmente compatible con
+`--json`.
+
+### `knowledge update <guid>`
+
+Actualiza una entrada de conocimiento existente. Incrementa `VersionNumber` automáticamente.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--title` | Sí | `string` | Título (max 500 chars) |
+| `--content` | Sí | `string` | Contenido principal |
+| `--summary` | No | `string` | Resumen corto |
+| `--system-id` | Sí* | `long` | ID del sistema asociado |
+| `--system-eai` | Sí* | `string` | Código EAI del sistema asociado |
+| `--type-id` | Sí* | `long` | ID del tipo de conocimiento |
+| `--type-code` | Sí* | `string` | Código del tipo de conocimiento |
+| `--state-id` | Sí* | `int` | ID del estado de conocimiento |
+| `--state-code` | Sí* | `string` | Código del estado de conocimiento |
+| `--tags` | No | `string` | Tags separados por coma. Reemplaza los existentes |
+| `--issue-id` | No | `guid` | ID del issue relacionado |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+`*` Debe usarse una sola forma por referencia: ID o clave natural, no ambas.
+
+**Output:**
+```
+Knowledge updated: <guid>
+  Title: <title>
+  Version: <N+1>
+```
+
+Si el GUID no existe: `Knowledge entry not found.`
+Si la BD no está disponible, actualiza en el almacén JSON local.
 
 ### `knowledge list`
 
@@ -175,13 +242,16 @@ Columnas: `Id` (8 chars), `Title`, `System`, `Type`, `State`, `Version`, `Update
 
 Muestra detalle completo de una entrada por GUID.
 
-```powershell
+```bash
 axiom knowledge show 177ed8be-6ec1-49f6-8439-8164aa2ea180
 ```
 
 Panel con: Title, Summary, Content, System, Type, State, Author, Tags, Version, IssueId, Created, Updated.
 
 Si no existe: `Knowledge entry not found.`
+
+Si la BD no está disponible, lee desde el almacén JSON local y muestra
+`(local store)` en el encabezado.
 
 ### `knowledge search <query>`
 
@@ -212,6 +282,7 @@ Crea un registro de issue/incidencia. FK a datos maestros existentes.
 | `--ritm-number` | No | `string` | Número RITM (único nullable) |
 | `--incident-number` | No | `string` | Número de incidencia (único nullable) |
 | `--json` | No | `bool` | Devuelve salida machine-readable |
+| `--wizard` | No | `bool` | Lanza asistente interactivo |
 
 `*` Debe usarse una sola forma por referencia: ID o clave natural, no ambas.
 
@@ -221,6 +292,10 @@ Issue created: <guid>
   Summary: <summary>
   State: <state>
 ```
+
+**Modo interactivo (`--wizard`):** Similar a `knowledge create --wizard`,
+con menús de selección para usuario, sistema y estado; campos opcionales
+para analysis, resolution, RITM e incident number.
 
 ### `issue list`
 
@@ -241,13 +316,44 @@ Columnas: `Id` (8 chars), `Summary`, `System`, `State`, `RITM`, `Incident`, `Cre
 
 Muestra detalle completo de un issue por GUID.
 
-```powershell
+```bash
 axiom issue show 74fc9278-5376-440d-9d72-38b68d5ff3de
 ```
 
 Panel con: Summary, Problem, Analysis, Resolution, System, State, RITM, Incident, CreatedBy, Created, ResolvedAt.
 
 Si no existe: `Issue not found.`
+Si la BD no está disponible, lee desde el almacén JSON local y muestra
+`(local store)` en el encabezado.
+
+### `issue update <guid>`
+
+Actualiza un issue existente.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--summary` | Sí | `string` | Resumen (max 200 chars) |
+| `--problem` | Sí | `string` | Descripción del problema |
+| `--system-id` | Sí* | `long` | ID del sistema asociado |
+| `--system-eai` | Sí* | `string` | Código EAI del sistema asociado |
+| `--state-id` | Sí* | `int` | ID del estado de issue |
+| `--state-code` | Sí* | `string` | Código del estado de issue |
+| `--analysis` | No | `string` | Análisis de causa raíz |
+| `--resolution` | No | `string` | Pasos de resolución |
+| `--ritm-number` | No | `string` | Número RITM |
+| `--incident-number` | No | `string` | Número de incidencia |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+`*` Debe usarse una sola forma por referencia: ID o clave natural, no ambas.
+
+**Output:**
+```
+Issue updated: <guid>
+  Summary: <summary>
+```
+
+Si el GUID no existe: `Issue not found.`
+Si la BD no está disponible, actualiza en el almacén JSON local.
 
 ---
 
@@ -293,6 +399,7 @@ Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). La
 | `UpdateKnowledgeCommand` | `UpdateKnowledgeHandler` | `Knowledge?` |
 | `DeleteKnowledgeCommand` | `DeleteKnowledgeHandler` | `bool` |
 | `CreateIssueCommand` | `CreateIssueHandler` | `Issue` |
+| `UpdateIssueCommand` | `UpdateIssueHandler` | `Issue?` |
 
 ### Queries
 
@@ -378,7 +485,7 @@ Tests de integración usan proveedor InMemory de EF Core con datos maestros seed
 
 ```bash
 dotnet build                          # Compila todo
-dotnet build src\Axiom.Cli            # Solo el CLI
-dotnet pack .\src\Axiom.Cli\Axiom.Cli.csproj -c Release
+dotnet build src/Axiom.Cli            # Solo el CLI
+dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
 axiom knowledge list                  # Uso recomendado con dotnet tool global
 ```

@@ -21,6 +21,16 @@ Reglas de uso de la herramienta:
 - No mezcles ID y clave natural para la misma referencia.
 - Si recibes un JSON con `{ "error": "..." }`, corrige la causa antes de continuar.
 - Si un resultado JSON es `[]`, significa que no hay coincidencias.
+- **Cuando un comando de consulta devuelva `[]` (sin resultados), pregunta al usuario si desea crear un knowledge o un issue. Si acepta, ejecuta `--wizard`** (ej. `axiom knowledge create --wizard`). El wizard CLI guiará al usuario por cada campo automáticamente.
+- **Si la base de datos SQL Server no está disponible, el sistema cae automáticamente en un store JSON local** en `~/.axiom/data/<entidad>.json`. Los errores de DB se ocultan completamente. El output muestra `[yellow]DB unavailable - ...` o similar indicando que se usó el store local.
+
+Almacenamiento local JSON (fallback automático):
+- Cuando la DB no está disponible, Axiom guarda los datos en `~/.axiom/data/` en archivos `<entidad>.json`.
+- El fallback es transparente: no necesitas flags adicionales, ocurre automáticamente.
+- Los comandos CREATE escriben al JSON solo si la DB falla (no duplica escrituras).
+- Los comandos LIST/SHOW/SEARCH leen del JSON solo si la DB falla.
+- Los datos en JSON pueden no tener los nombres resueltos (muestran IDs en lugar de nombres de sistema/tipo/estado).
+- Si ves en la salida "[yellow]DB unavailable...[/]" significa que se usó el store local. Puedes continuar operando normalmente.
 
 Comandos principales:
 - Preparar datos demo:
@@ -41,17 +51,28 @@ Comandos principales:
 - Ver detalle de issue:
   `axiom issue show <issueId> --json`
 
+- Actualizar issue:
+  `axiom issue update <issueId> --system-eai <EAI> --state-code <STATE_CODE> --summary "<resumen>" --problem "<problema>" --analysis "<analisis>" --resolution "<resolucion>" --json`
+
 - Crear issue:
   `axiom issue create --system-eai <EAI> --state-code <STATE_CODE> --created-by-email <EMAIL> --summary "<resumen>" --problem "<problema>" --analysis "<analisis>" --resolution "<resolucion>" --ritm-number "<RITM>" --incident-number "<INC>" --json`
+- Crear issue (wizard interactivo):
+  `axiom issue create --wizard`
+
+- Actualizar entrada de conocimiento:
+  `axiom knowledge update <knowledgeId> --system-eai <EAI> --type-code <TYPE_CODE> --state-code <STATE_CODE> --title "<titulo>" --content "<contenido>" --tags "<tag1,tag2>" --json`
 
 - Crear entrada de conocimiento:
   `axiom knowledge create --system-eai <EAI> --type-code <TYPE_CODE> --state-code <STATE_CODE> --created-by-email <EMAIL> --title "<titulo>" --summary "<resumen>" --content "<contenido>" --tags "<tag1,tag2>" --issue-id <issueId> --json`
+- Crear entrada de conocimiento (wizard interactivo):
+  `axiom knowledge create --wizard`
 
 Flujo recomendado cuando el usuario pregunta por un problema:
 1. Busca en knowledge con términos relevantes.
-2. Si hay resultados, revisa el detalle de los más relevantes.
-3. Si conoces el sistema, revisa issues relacionados por EAI.
-4. Responde con un resumen claro, pasos encontrados y referencias.
+2. Si hay resultados, revisa el detalle de los más relevantes y responde con un resumen.
+3. Si **no hay resultados**, activa el flujo de wizard (ver sección Wizard de creación).
+4. Si conoces el sistema, revisa issues relacionados por EAI.
+5. Responde con un resumen claro, pasos encontrados y referencias.
 
 Flujo recomendado cuando el usuario reporta un incidente:
 1. Identifica sistema, estado inicial y usuario creador.
@@ -65,6 +86,15 @@ Flujo recomendado cuando el usuario quiere registrar conocimiento:
 2. Usa claves naturales y `--json`.
 3. Crea la entrada.
 4. Responde con `knowledgeId`, título, sistema y estado.
+
+Wizard interactivo (cuando una búsqueda no encuentra resultados):
+1. Informa al usuario que no hay resultados y pregunta si desea crear un **knowledge** o un **issue**.
+2. Si elige **knowledge**, ejecuta:
+   `axiom knowledge create --wizard`
+3. Si elige **issue**, ejecuta:
+   `axiom issue create --wizard`
+4. El wizard CLI guiará al usuario por cada campo de forma interactiva.
+5. Responde con el ID del registro creado.
 
 Criterios de respuesta:
 - Sé breve, claro y operacional.

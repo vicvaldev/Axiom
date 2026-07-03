@@ -32,14 +32,15 @@ public class Knowledge
         Guid createdByUserId,
         long knowledgeTypeId,
         int knowledgeStateId,
-        Guid? issueId = null)
+        Guid? issueId = null,
+        Guid? knowledgeId = null)
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title cannot be empty.", nameof(title));
         if (string.IsNullOrWhiteSpace(content))
             throw new ArgumentException("Content cannot be empty.", nameof(content));
 
-        KnowledgeId = Guid.NewGuid();
+        KnowledgeId = knowledgeId ?? Guid.NewGuid();
         Title = title;
         Summary = summary ?? string.Empty;
         Content = content;

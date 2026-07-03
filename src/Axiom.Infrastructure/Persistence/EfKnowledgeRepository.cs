@@ -16,11 +16,18 @@ public class EfKnowledgeRepository : IKnowledgeRepository
     public async Task SaveAsync(Knowledge entry, CancellationToken cancellationToken = default)
     {
         var existing = await _context.Knowledges
+            .Include(e => e.KnowledgeKnowledgeTags)
             .FirstOrDefaultAsync(e => e.KnowledgeId == entry.KnowledgeId, cancellationToken);
 
         if (existing is not null)
         {
             _context.Entry(existing).CurrentValues.SetValues(entry);
+
+            existing.KnowledgeKnowledgeTags.Clear();
+            foreach (var tag in entry.KnowledgeKnowledgeTags)
+            {
+                existing.KnowledgeKnowledgeTags.Add(tag);
+            }
         }
         else
         {

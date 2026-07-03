@@ -17,6 +17,7 @@ public static class DependencyInjection
         services.AddScoped<ITagRepository, EfTagRepository>();
         services.AddScoped<IStartupService, EfStartupService>();
         services.AddScoped<IReferenceDataService, EfReferenceDataService>();
+        services.AddSingleton<IJsonStore>(new JsonStore());
 
         return services;
     }

@@ -3,7 +3,7 @@
   "isRoot": true,
   "tools": {
     "axiom.cli": {
-      "version": "0.1.0-mvp.5",
+      "version": "1.0.0",
       "commands": [
         "axiom"
       ],

@@ -25,7 +25,8 @@ public class CreateIssueHandler : IRequestHandler<CreateIssueCommand, Issue>
             request.Analysis,
             request.Resolution,
             request.RitmNumber,
-            request.IncidentNumber);
+            request.IncidentNumber,
+            request.IssueId);
 
         await _repository.SaveAsync(issue, cancellationToken);
         return issue;

@@ -12,4 +12,5 @@ public record CreateIssueCommand(
     int StateId,
     Guid CreatedByUserId,
     string? RitmNumber,
-    string? IncidentNumber) : IRequest<Issue>;
+    string? IncidentNumber,
+    Guid? IssueId = null) : IRequest<Issue>;

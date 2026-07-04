@@ -32,14 +32,15 @@ public class Issue
         string? analysis = null,
         string? resolution = null,
         string? ritmNumber = null,
-        string? incidentNumber = null)
+        string? incidentNumber = null,
+        Guid? issueId = null)
     {
         if (string.IsNullOrWhiteSpace(summary))
             throw new ArgumentException("Summary cannot be empty.", nameof(summary));
         if (string.IsNullOrWhiteSpace(problem))
             throw new ArgumentException("Problem cannot be empty.", nameof(problem));
 
-        IssueId = Guid.NewGuid();
+        IssueId = issueId ?? Guid.NewGuid();
         Summary = summary;
         SystemId = systemId;
         Problem = problem;
@@ -64,6 +65,32 @@ public class Issue
     public void UpdateState(int stateId)
     {
         StateId = stateId;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void Update(
+        string summary,
+        string problem,
+        string? analysis,
+        string? resolution,
+        long systemId,
+        int stateId,
+        string? ritmNumber,
+        string? incidentNumber)
+    {
+        if (string.IsNullOrWhiteSpace(summary))
+            throw new ArgumentException("Summary cannot be empty.", nameof(summary));
+        if (string.IsNullOrWhiteSpace(problem))
+            throw new ArgumentException("Problem cannot be empty.", nameof(problem));
+
+        Summary = summary;
+        Problem = problem;
+        Analysis = analysis ?? string.Empty;
+        Resolution = resolution ?? string.Empty;
+        SystemId = systemId;
+        StateId = stateId;
+        RitmNumber = ritmNumber;
+        IncidentNumber = incidentNumber;
         UpdatedAt = DateTime.UtcNow;
     }
 }

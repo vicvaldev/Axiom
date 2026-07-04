@@ -12,4 +12,5 @@ public record CreateKnowledgeCommand(
     long KnowledgeTypeId,
     int KnowledgeStateId,
     Guid? IssueId,
-    List<string> Tags) : IRequest<Knowledge>;
+    List<string> Tags,
+    Guid? KnowledgeId = null) : IRequest<Knowledge>;

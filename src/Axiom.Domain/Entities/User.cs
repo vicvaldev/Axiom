@@ -23,4 +23,15 @@ public class User
         Email = email;
         Name = name;
     }
+
+    public void Update(string email, string name)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            throw new ArgumentException("Email cannot be empty.", nameof(email));
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be empty.", nameof(name));
+
+        Email = email;
+        Name = name;
+    }
 }

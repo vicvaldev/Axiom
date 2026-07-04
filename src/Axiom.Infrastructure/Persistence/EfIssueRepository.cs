@@ -49,6 +49,18 @@ public class EfIssueRepository : IIssueRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var entry = await _context.Issues
+            .FirstOrDefaultAsync(i => i.IssueId == id, cancellationToken);
+
+        if (entry is not null)
+        {
+            _context.Issues.Remove(entry);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+    }
+
     public async Task<IEnumerable<Issue>> GetByEaiAsync(string eai, CancellationToken cancellationToken = default)
     {
         return await _context.Issues

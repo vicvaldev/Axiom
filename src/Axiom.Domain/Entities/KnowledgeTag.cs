@@ -16,4 +16,12 @@ public class KnowledgeTag
 
         TagName = tagName;
     }
+
+    public void Update(string tagName)
+    {
+        if (string.IsNullOrWhiteSpace(tagName))
+            throw new ArgumentException("Tag name cannot be empty.", nameof(tagName));
+
+        TagName = tagName;
+    }
 }

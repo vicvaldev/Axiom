@@ -4,8 +4,17 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Axiom.Infrastructure.Persistence.Configurations;
 
+/// <summary>
+/// Configuración de la entidad <see cref="IssueState"/> para Entity Framework Core.
+/// Define la tabla "IssueStates", su clave primaria autoincremental, las propiedades
+/// obligatorias <c>Code</c> y <c>Name</c> con restricciones de longitud, y un índice único sobre el código.
+/// </summary>
 public class IssueStateConfiguration : IEntityTypeConfiguration<IssueState>
 {
+    /// <summary>
+    /// Configura el mapeo de la entidad <see cref="IssueState"/> en el modelo de EF Core.
+    /// </summary>
+    /// <param name="builder">Constructor de la configuración de la entidad <see cref="IssueState"/>.</param>
     public void Configure(EntityTypeBuilder<IssueState> builder)
     {
         builder.ToTable("IssueStates");

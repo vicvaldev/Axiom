@@ -4,8 +4,17 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Axiom.Infrastructure.Persistence.Configurations;
 
+/// <summary>
+/// Configuración de la entidad <see cref="KnowledgeType"/> para Entity Framework Core.
+/// Define la tabla "KnowledgeTypes", su clave primaria autoincremental, las propiedades
+/// obligatorias <c>Code</c> y <c>Name</c> con restricciones de longitud, y un índice único sobre el código.
+/// </summary>
 public class KnowledgeTypeConfiguration : IEntityTypeConfiguration<KnowledgeType>
 {
+    /// <summary>
+    /// Configura el mapeo de la entidad <see cref="KnowledgeType"/> en el modelo de EF Core.
+    /// </summary>
+    /// <param name="builder">Constructor de la configuración de la entidad <see cref="KnowledgeType"/>.</param>
     public void Configure(EntityTypeBuilder<KnowledgeType> builder)
     {
         builder.ToTable("KnowledgeTypes");

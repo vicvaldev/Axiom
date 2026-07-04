@@ -4,8 +4,19 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Axiom.Infrastructure.Persistence.Configurations;
 
+/// <summary>
+/// Configuración de la entidad <see cref="Knowledge"/> para Entity Framework Core.
+/// Define la tabla "Knowledges", su clave primaria (GUID generado por la aplicación),
+/// propiedades obligatorias y opcionales con restricciones de longitud y tipo,
+/// las relaciones con <see cref="AxiomSystem"/>, <see cref="User"/>, <see cref="KnowledgeType"/>,
+/// <see cref="KnowledgeState"/> e <see cref="Issue"/>, e índices sobre las claves foráneas.
+/// </summary>
 public class KnowledgeConfiguration : IEntityTypeConfiguration<Knowledge>
 {
+    /// <summary>
+    /// Configura el mapeo de la entidad <see cref="Knowledge"/> en el modelo de EF Core.
+    /// </summary>
+    /// <param name="builder">Constructor de la configuración de la entidad <see cref="Knowledge"/>.</param>
     public void Configure(EntityTypeBuilder<Knowledge> builder)
     {
         builder.ToTable("Knowledges");

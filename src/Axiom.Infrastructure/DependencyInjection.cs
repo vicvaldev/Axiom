@@ -5,8 +5,20 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Axiom.Infrastructure;
 
+/// <summary>
+/// Proporciona métodos de extensión para registrar los servicios de la capa de infraestructura
+/// en el contenedor de inyección de dependencias.
+/// </summary>
 public static class DependencyInjection
 {
+    /// <summary>
+    /// Registra los servicios de infraestructura en el contenedor de DI, incluyendo
+    /// el <see cref="DbContext"/> de EF Core, los repositorios (scoped) y el almacén
+    /// JSON en memoria (singleton).
+    /// </summary>
+    /// <param name="services">Colección de descriptores de servicios donde se registrarán las dependencias.</param>
+    /// <param name="connectionString">Cadena de conexión a la base de datos SQL Server.</param>
+    /// <returns>La misma colección <paramref name="services"/> para permitir el encadenamiento.</returns>
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, string connectionString)
     {
         services.AddDbContext<AxiomDbContext>(options =>

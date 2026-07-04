@@ -4,8 +4,19 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Axiom.Infrastructure.Persistence.Configurations;
 
+/// <summary>
+/// Configuración de la entidad <see cref="Issue"/> para Entity Framework Core.
+/// Define la tabla "Issues", su clave primaria (GUID generado por la aplicación),
+/// propiedades obligatorias y opcionales con restricciones de longitud y tipo,
+/// las relaciones con <see cref="AxiomSystem"/>, <see cref="IssueState"/> y <see cref="User"/>,
+/// e índices únicos filtrados para <c>RitmNumber</c> e <c>IncidentNumber</c>.
+/// </summary>
 public class IssueConfiguration : IEntityTypeConfiguration<Issue>
 {
+    /// <summary>
+    /// Configura el mapeo de la entidad <see cref="Issue"/> en el modelo de EF Core.
+    /// </summary>
+    /// <param name="builder">Constructor de la configuración de la entidad <see cref="Issue"/>.</param>
     public void Configure(EntityTypeBuilder<Issue> builder)
     {
         builder.ToTable("Issues");

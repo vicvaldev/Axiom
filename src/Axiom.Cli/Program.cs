@@ -1,4 +1,29 @@
-﻿using System.CommandLine;
+﻿// ========================================================================
+// Program.cs — Punto de entrada principal de la CLI de Axiom
+//
+// Este archivo utiliza top-level statements de C# para definir toda la
+// interfaz de línea de comandos mediante System.CommandLine y
+// Spectre.Console. La aplicación sigue una arquitectura limpia (Clean
+// Architecture) con capas Domain, Application e Infrastructure.
+//
+// Estructura general:
+//   1. Configuración de DI host y opciones JSON
+//   2. Comandos knowledge: create (con wizard), update, list, show, search
+//   3. Comandos issue: create (con wizard), update, list, show, delete
+//   4. Comandos user: list, show, create, update, delete
+//   5. Comandos system: list, show, create, update, delete
+//   6. Comandos de datos de referencia: knowledge-type, knowledge-state,
+//      issue-state, knowledge-tag (list, create, update, delete)
+//   7. Comando startup: seed/init de datos iniciales
+//   8. Funciones auxiliares locales: WriteJson, WriteError, CreateJsonStore,
+//      WriteReferenceList, Resolve*, To* (proyecciones)
+//   9. Invocación del comando raíz y retorno del código de salida
+//
+// Todos los comandos incluyen un fallback a almacenamiento local
+// (JsonStore) cuando la base de datos no está disponible.
+// ========================================================================
+
+using System.CommandLine;
 using System.CommandLine.Parsing;
 using System.Text.Json;
 using Axiom.Application;
@@ -15,38 +40,70 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Spectre.Console;
 
+/// <summary>
+/// Opciones globales de serialización JSON: nomenclatura camelCase y sangría legible.
+/// </summary>
 var jsonOptions = new JsonSerializerOptions
 {
     PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     WriteIndented = true
 };
 
+/// <summary>
+/// Crea una opción booleana <c>--json</c> que indica que la salida debe ser en formato JSON
+/// legible por máquina en lugar de la tabla formateada con Spectre.Console.
+/// </summary>
+/// <returns>Una instancia de <see cref="Option{T}"/> con tipo <see cref="bool"/> para la opción --json.</returns>
 Option<bool> NewJsonOption() => new("--json")
 {
     Description = "Write machine-readable JSON output"
 };
 
+/// <summary>
+/// Crea una opción booleana <c>--wizard</c> que activa el asistente interactivo
+/// (mediante Spectre.Console) para guiar al usuario en la creación de una entidad.
+/// </summary>
+/// <returns>Una instancia de <see cref="Option{T}"/> con tipo <see cref="bool"/> para la opción --wizard.</returns>
 Option<bool> NewWizardOption() => new("--wizard")
 {
     Description = "Launch interactive wizard to create the entry"
 };
 
+// ========================================================================
+// CONFIGURACIÓN DEL HOST DE DI (Dependency Injection)
+// ========================================================================
+
 var builder = Host.CreateApplicationBuilder(args);
 
+// Reducir el ruido de logs de EF Core a solo advertencias
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
 
+// Cadena de conexión: variable de entorno AXIOM_CONNECTION_STRING o fallback local
 var connectionString = Environment.GetEnvironmentVariable("AXIOM_CONNECTION_STRING")
     ?? "Server=localhost;Database=AXIOM;Integrated Security=True;TrustServerCertificate=True;";
 
+// Registrar las capas de Application e Infrastructure en el contenedor DI
 builder.Services
     .AddApplication()
     .AddInfrastructure(connectionString);
 
 var host = builder.Build();
 
+// ========================================================================
+// COMANDO RAÍZ
+// ========================================================================
+
 var rootCommand = new RootCommand("Axiom - KnowledgeOps and Operational Continuity Platform");
 
+// ========================================================================
+// COMANDOS: knowledge — Gestión de entradas de conocimiento
+// ========================================================================
+
 var knowledgeCmd = new Command("knowledge", "Manage knowledge entries");
+
+// ------------------------------------------------------------------------
+// knowledge create — Crear una nueva entrada de conocimiento
+// ------------------------------------------------------------------------
 
 var createCmd = new Command("create", "Create a new knowledge entry");
 var titleOpt = new Option<string>("--title") { Required = true };
@@ -345,6 +402,10 @@ createCmd.SetAction((ParseResult result) =>
 
 knowledgeCmd.Subcommands.Add(createCmd);
 
+// ------------------------------------------------------------------------
+// knowledge update — Actualizar una entrada de conocimiento existente
+// ------------------------------------------------------------------------
+
 var knowledgeUpdateCmd = new Command("update", "Update a knowledge entry");
 var knowledgeUpdateIdArg = new Argument<Guid>("id");
 var knowledgeUpdateTitleOpt = new Option<string>("--title") { Required = true };
@@ -502,6 +563,10 @@ knowledgeUpdateCmd.SetAction((ParseResult result) =>
 
 knowledgeCmd.Subcommands.Add(knowledgeUpdateCmd);
 
+// ------------------------------------------------------------------------
+// knowledge list — Listar todas las entradas de conocimiento
+// ------------------------------------------------------------------------
+
 var listCmd = new Command("list", "List all knowledge entries");
 var knowledgeListJsonOpt = NewJsonOption();
 listCmd.Options.Add(knowledgeListJsonOpt);
@@ -575,6 +640,10 @@ listCmd.SetAction((ParseResult result) =>
 });
 
 knowledgeCmd.Subcommands.Add(listCmd);
+
+// ------------------------------------------------------------------------
+// knowledge show — Mostrar detalle de una entrada de conocimiento
+// ------------------------------------------------------------------------
 
 var showCmd = new Command("show", "Show knowledge entry details");
 var idArg = new Argument<Guid>("id");
@@ -669,6 +738,10 @@ showCmd.SetAction((ParseResult result) =>
 
 knowledgeCmd.Subcommands.Add(showCmd);
 
+// ------------------------------------------------------------------------
+// knowledge search — Buscar entradas de conocimiento por texto
+// ------------------------------------------------------------------------
+
 var searchCmd = new Command("search", "Search knowledge entries");
 var queryArg = new Argument<string>("query");
 var knowledgeSearchJsonOpt = NewJsonOption();
@@ -750,7 +823,15 @@ searchCmd.SetAction((ParseResult result) =>
 knowledgeCmd.Subcommands.Add(searchCmd);
 rootCommand.Subcommands.Add(knowledgeCmd);
 
+// ========================================================================
+// COMANDOS: issue — Gestión de incidencias
+// ========================================================================
+
 var issueCmd = new Command("issue", "Manage issue records");
+
+// ------------------------------------------------------------------------
+// issue create — Crear una nueva incidencia
+// ------------------------------------------------------------------------
 
 var issueCreateCmd = new Command("create", "Create a new issue record");
 var issueSummaryOpt = new Option<string>("--summary") { Required = true };
@@ -1029,6 +1110,10 @@ issueCreateCmd.SetAction((ParseResult result) =>
 
 issueCmd.Subcommands.Add(issueCreateCmd);
 
+// ------------------------------------------------------------------------
+// issue update — Actualizar una incidencia existente
+// ------------------------------------------------------------------------
+
 var issueUpdateCmd = new Command("update", "Update an issue record");
 var issueUpdateIdArg = new Argument<Guid>("id");
 var issueUpdateSummaryOpt = new Option<string>("--summary") { Required = true };
@@ -1177,6 +1262,10 @@ issueUpdateCmd.SetAction((ParseResult result) =>
 
 issueCmd.Subcommands.Add(issueUpdateCmd);
 
+// ------------------------------------------------------------------------
+// issue list — Listar incidencias
+// ------------------------------------------------------------------------
+
 var eaiOpt = new Option<string>("--eai")
 {
     Description = "Filter by system EAI code"
@@ -1257,6 +1346,10 @@ issueListCmd.SetAction((ParseResult result) =>
 });
 
 issueCmd.Subcommands.Add(issueListCmd);
+
+// ------------------------------------------------------------------------
+// issue show — Mostrar detalle de una incidencia
+// ------------------------------------------------------------------------
 
 var issueShowCmd = new Command("show", "Show issue record details");
 var issueIdArg = new Argument<Guid>("id");
@@ -1351,6 +1444,10 @@ issueShowCmd.SetAction((ParseResult result) =>
 
 issueCmd.Subcommands.Add(issueShowCmd);
 
+// ------------------------------------------------------------------------
+// issue delete — Eliminar una incidencia
+// ------------------------------------------------------------------------
+
 var issueDeleteCmd = new Command("delete", "Delete an issue record");
 var issueDeleteIdArg = new Argument<Guid>("id");
 var issueDeleteJsonOpt = NewJsonOption();
@@ -1418,7 +1515,16 @@ issueDeleteCmd.SetAction((ParseResult result) =>
 issueCmd.Subcommands.Add(issueDeleteCmd);
 rootCommand.Subcommands.Add(issueCmd);
 
+// ========================================================================
+// COMANDOS: user — Gestión de usuarios
+// ========================================================================
+
 var userCmd = new Command("user", "Manage users");
+
+// ------------------------------------------------------------------------
+// user list — Listar usuarios
+// ------------------------------------------------------------------------
+
 var userListCmd = new Command("list", "List users");
 var userListJsonOpt = NewJsonOption();
 userListCmd.Options.Add(userListJsonOpt);
@@ -1474,6 +1580,10 @@ userListCmd.SetAction((ParseResult result) =>
     }
 });
 userCmd.Subcommands.Add(userListCmd);
+
+// ------------------------------------------------------------------------
+// user update — Actualizar un usuario existente
+// ------------------------------------------------------------------------
 
 var userUpdateCmd = new Command("update", "Update a user");
 var userUpdateIdArg = new Argument<Guid>("id");
@@ -1567,6 +1677,10 @@ userUpdateCmd.SetAction((ParseResult result) =>
 
 userCmd.Subcommands.Add(userUpdateCmd);
 
+// ------------------------------------------------------------------------
+// user create — Crear un nuevo usuario
+// ------------------------------------------------------------------------
+
 var userCreateCmd = new Command("create", "Create a new user");
 var userCreateEmailOpt = new Option<string>("--email") { Required = true };
 var userCreateNameOpt = new Option<string>("--name") { Required = true };
@@ -1638,6 +1752,10 @@ userCreateCmd.SetAction((ParseResult result) =>
 
 userCmd.Subcommands.Add(userCreateCmd);
 
+// ------------------------------------------------------------------------
+// user delete — Eliminar un usuario
+// ------------------------------------------------------------------------
+
 var userDeleteCmd = new Command("delete", "Delete a user");
 var userDeleteIdArg = new Argument<Guid>("id");
 var userDeleteJsonOpt = NewJsonOption();
@@ -1705,7 +1823,16 @@ userDeleteCmd.SetAction((ParseResult result) =>
 userCmd.Subcommands.Add(userDeleteCmd);
 rootCommand.Subcommands.Add(userCmd);
 
+// ========================================================================
+// COMANDOS: system — Gestión de sistemas
+// ========================================================================
+
 var systemCmd = new Command("system", "Manage systems");
+
+// ------------------------------------------------------------------------
+// system list — Listar sistemas
+// ------------------------------------------------------------------------
+
 var systemListCmd = new Command("list", "List systems");
 var systemListJsonOpt = NewJsonOption();
 systemListCmd.Options.Add(systemListJsonOpt);
@@ -1761,6 +1888,10 @@ systemListCmd.SetAction((ParseResult result) =>
     }
 });
 systemCmd.Subcommands.Add(systemListCmd);
+
+// ------------------------------------------------------------------------
+// system update — Actualizar un sistema existente
+// ------------------------------------------------------------------------
 
 var systemUpdateCmd = new Command("update", "Update a system");
 var systemUpdateIdArg = new Argument<long>("id");
@@ -1867,6 +1998,10 @@ systemUpdateCmd.SetAction((ParseResult result) =>
 
 systemCmd.Subcommands.Add(systemUpdateCmd);
 
+// ------------------------------------------------------------------------
+// system create — Crear un nuevo sistema
+// ------------------------------------------------------------------------
+
 var systemCreateCmd = new Command("create", "Create a new system");
 var systemCreateEaiOpt = new Option<string>("--eai") { Required = true };
 var systemCreateNameOpt = new Option<string>("--name") { Required = true };
@@ -1947,6 +2082,10 @@ systemCreateCmd.SetAction((ParseResult result) =>
 
 systemCmd.Subcommands.Add(systemCreateCmd);
 
+// ------------------------------------------------------------------------
+// system delete — Eliminar un sistema
+// ------------------------------------------------------------------------
+
 var systemDeleteCmd = new Command("delete", "Delete a system");
 var systemDeleteIdArg = new Argument<long>("id");
 var systemDeleteJsonOpt = NewJsonOption();
@@ -2013,6 +2152,10 @@ systemDeleteCmd.SetAction((ParseResult result) =>
 
 systemCmd.Subcommands.Add(systemDeleteCmd);
 rootCommand.Subcommands.Add(systemCmd);
+
+// ========================================================================
+// COMANDOS: knowledge-type — Gestión de tipos de conocimiento
+// ========================================================================
 
 var knowledgeTypeCmd = new Command("knowledge-type", "Manage knowledge types");
 var knowledgeTypeListCmd = new Command("list", "List knowledge types");
@@ -2286,6 +2429,10 @@ knowledgeTypeDeleteCmd.SetAction((ParseResult result) =>
 knowledgeTypeCmd.Subcommands.Add(knowledgeTypeDeleteCmd);
 rootCommand.Subcommands.Add(knowledgeTypeCmd);
 
+// ========================================================================
+// COMANDOS: knowledge-state — Gestión de estados de conocimiento
+// ========================================================================
+
 var knowledgeStateCmd = new Command("knowledge-state", "Manage knowledge states");
 var knowledgeStateListCmd = new Command("list", "List knowledge states");
 var knowledgeStateListJsonOpt = NewJsonOption();
@@ -2558,6 +2705,10 @@ knowledgeStateDeleteCmd.SetAction((ParseResult result) =>
 knowledgeStateCmd.Subcommands.Add(knowledgeStateDeleteCmd);
 rootCommand.Subcommands.Add(knowledgeStateCmd);
 
+// ========================================================================
+// COMANDOS: issue-state — Gestión de estados de incidencia
+// ========================================================================
+
 var issueStateCmd = new Command("issue-state", "Manage issue states");
 var issueStateListCmd = new Command("list", "List issue states");
 var issueStateListJsonOpt = NewJsonOption();
@@ -2829,6 +2980,10 @@ issueStateDeleteCmd.SetAction((ParseResult result) =>
 
 issueStateCmd.Subcommands.Add(issueStateDeleteCmd);
 rootCommand.Subcommands.Add(issueStateCmd);
+
+// ========================================================================
+// COMANDOS: knowledge-tag — Gestión de etiquetas de conocimiento
+// ========================================================================
 
 var knowledgeTagCmd = new Command("knowledge-tag", "Manage knowledge tags");
 
@@ -3104,6 +3259,10 @@ knowledgeTagDeleteCmd.SetAction((ParseResult result) =>
 knowledgeTagCmd.Subcommands.Add(knowledgeTagDeleteCmd);
 rootCommand.Subcommands.Add(knowledgeTagCmd);
 
+// ========================================================================
+// COMANDO: startup — Inicialización de datos de referencia (seed/init)
+// ========================================================================
+
 var startupCmd = new Command("startup", "Initialize reference data (Users, Systems, KnowledgeTypes, IssueStates, KnowledgeStates)");
 var startupDemoOpt = new Option<bool>("--demo")
 {
@@ -3290,11 +3449,21 @@ startupCmd.SetAction((ParseResult result) =>
 
 rootCommand.Subcommands.Add(startupCmd);
 
+/// <summary>
+/// Escribe un objeto serializado como JSON en la salida estándar.
+/// </summary>
+/// <param name="value">Objeto a serializar. Puede ser cualquier tipo anónimo o instancia de DTO.</param>
 void WriteJson(object value)
 {
     Console.WriteLine(JsonSerializer.Serialize(value, jsonOptions));
 }
 
+/// <summary>
+/// Muestra un mensaje de error, ya sea como JSON estructurado si el modo <c>json</c> está activo,
+/// o con formato en rojo mediante Spectre.Console. Establece el código de salida del proceso en 1.
+/// </summary>
+/// <param name="message">Texto descriptivo del error.</param>
+/// <param name="json">Si es <c>true</c>, la salida se realiza en formato JSON con una propiedad <c>error</c>.</param>
 void WriteError(string message, bool json)
 {
     Environment.ExitCode = 1;
@@ -3307,6 +3476,14 @@ void WriteError(string message, bool json)
     AnsiConsole.MarkupLine($"[red]{message}[/]");
 }
 
+/// <summary>
+/// Crea una instancia de <see cref="JsonStore"/> como almacenamiento local de respaldo
+/// cuando la base de datos no está disponible.
+/// </summary>
+/// <returns>
+/// Una nueva instancia de <see cref="JsonStore"/> si se pudo crear exitosamente;
+/// <c>null</c> si ocurrió una excepción durante la creación.
+/// </returns>
 JsonStore? CreateJsonStore()
 {
     try
@@ -3319,6 +3496,13 @@ JsonStore? CreateJsonStore()
     }
 }
 
+/// <summary>
+/// Muestra una lista de datos de referencia (códigos nominales) en formato de tabla con Spectre.Console
+/// o como JSON, dependiendo del modo de salida.
+/// </summary>
+/// <param name="references">Colección de elementos <see cref="ReferenceCodeDto"/> a mostrar.</param>
+/// <param name="json">Si es <c>true</c>, la salida se realiza en formato JSON.</param>
+/// <param name="columns">Nombres de las columnas para la tabla de Spectre.Console.</param>
 void WriteReferenceList(IEnumerable<Axiom.Application.Dtos.ReferenceCodeDto> references, bool json, params string[] columns)
 {
     if (json)
@@ -3337,6 +3521,18 @@ void WriteReferenceList(IEnumerable<Axiom.Application.Dtos.ReferenceCodeDto> ref
     AnsiConsole.Write(table);
 }
 
+/// <summary>
+/// Resuelve la referencia a un sistema a partir de su ID numérico o su código EAI.
+/// Valida que solo se proporcione uno de los dos parámetros y busca por EAI si es necesario.
+/// </summary>
+/// <param name="id">ID numérico del sistema. Debe ser mayor que 0 para ser considerado.</param>
+/// <param name="eai">Código EAI del sistema (hasta 20 caracteres).</param>
+/// <param name="references">Servicio de datos de referencia para la búsqueda por EAI.</param>
+/// <param name="json">Indica si los errores deben mostrarse en formato JSON.</param>
+/// <returns>
+/// El ID del sistema si se pudo resolver; <c>null</c> si no se proporcionó una referencia válida,
+/// si se proporcionaron ambas, o si el EAI no se encontró en la base de datos.
+/// </returns>
 long? ResolveSystemId(long id, string? eai, IReferenceDataService references, bool json)
 {
     if (id > 0 && !string.IsNullOrWhiteSpace(eai))
@@ -3366,6 +3562,18 @@ long? ResolveSystemId(long id, string? eai, IReferenceDataService references, bo
     return system.SystemId;
 }
 
+/// <summary>
+/// Resuelve la referencia a un tipo de conocimiento a partir de su ID numérico o su código.
+/// Valida que solo se proporcione uno de los dos parámetros y busca por código si es necesario.
+/// </summary>
+/// <param name="id">ID numérico del tipo de conocimiento. Debe ser mayor que 0 para ser considerado.</param>
+/// <param name="code">Código del tipo de conocimiento (único en la tabla KnowledgeTypes).</param>
+/// <param name="references">Servicio de datos de referencia para la búsqueda por código.</param>
+/// <param name="json">Indica si los errores deben mostrarse en formato JSON.</param>
+/// <returns>
+/// El ID del tipo de conocimiento si se pudo resolver; <c>null</c> si no se proporcionó una referencia válida,
+/// si se proporcionaron ambas, o si el código no se encontró.
+/// </returns>
 long? ResolveKnowledgeTypeId(long id, string? code, IReferenceDataService references, bool json)
 {
     if (id > 0 && !string.IsNullOrWhiteSpace(code))
@@ -3395,6 +3603,18 @@ long? ResolveKnowledgeTypeId(long id, string? code, IReferenceDataService refere
     return type.Id;
 }
 
+/// <summary>
+/// Resuelve la referencia a un estado de conocimiento a partir de su ID numérico o su código.
+/// Valida que solo se proporcione uno de los dos parámetros y busca por código si es necesario.
+/// </summary>
+/// <param name="id">ID numérico del estado de conocimiento. Debe ser mayor que 0 para ser considerado.</param>
+/// <param name="code">Código del estado de conocimiento (único en la tabla KnowledgeStates).</param>
+/// <param name="references">Servicio de datos de referencia para la búsqueda por código.</param>
+/// <param name="json">Indica si los errores deben mostrarse en formato JSON.</param>
+/// <returns>
+/// El ID del estado de conocimiento si se pudo resolver; <c>null</c> si no se proporcionó una referencia válida,
+/// si se proporcionaron ambas, o si el código no se encontró.
+/// </returns>
 int? ResolveKnowledgeStateId(int id, string? code, IReferenceDataService references, bool json)
 {
     if (id > 0 && !string.IsNullOrWhiteSpace(code))
@@ -3424,6 +3644,18 @@ int? ResolveKnowledgeStateId(int id, string? code, IReferenceDataService referen
     return (int)state.Id;
 }
 
+/// <summary>
+/// Resuelve la referencia a un estado de incidencia a partir de su ID numérico o su código.
+/// Valida que solo se proporcione uno de los dos parámetros y busca por código si es necesario.
+/// </summary>
+/// <param name="id">ID numérico del estado de incidencia. Debe ser mayor que 0 para ser considerado.</param>
+/// <param name="code">Código del estado de incidencia (único en la tabla IssueStates).</param>
+/// <param name="references">Servicio de datos de referencia para la búsqueda por código.</param>
+/// <param name="json">Indica si los errores deben mostrarse en formato JSON.</param>
+/// <returns>
+/// El ID del estado de incidencia si se pudo resolver; <c>null</c> si no se proporcionó una referencia válida,
+/// si se proporcionaron ambas, o si el código no se encontró.
+/// </returns>
 int? ResolveIssueStateId(int id, string? code, IReferenceDataService references, bool json)
 {
     if (id > 0 && !string.IsNullOrWhiteSpace(code))
@@ -3453,6 +3685,18 @@ int? ResolveIssueStateId(int id, string? code, IReferenceDataService references,
     return (int)state.Id;
 }
 
+/// <summary>
+/// Resuelve la referencia a un usuario a partir de su GUID o su correo electrónico.
+/// Valida que solo se proporcione uno de los dos parámetros y busca por email si es necesario.
+/// </summary>
+/// <param name="id">GUID del usuario. Se considera válido si es distinto de <see cref="Guid.Empty"/>.</param>
+/// <param name="email">Correo electrónico del usuario (único en la tabla Users).</param>
+/// <param name="references">Servicio de datos de referencia para la búsqueda por email.</param>
+/// <param name="json">Indica si los errores deben mostrarse en formato JSON.</param>
+/// <returns>
+/// El GUID del usuario si se pudo resolver; <c>null</c> si no se proporcionó una referencia válida,
+/// si se proporcionaron ambas, o si el email no se encontró.
+/// </returns>
 Guid? ResolveUserId(Guid id, string? email, IReferenceDataService references, bool json)
 {
     if (id != Guid.Empty && !string.IsNullOrWhiteSpace(email))
@@ -3482,6 +3726,12 @@ Guid? ResolveUserId(Guid id, string? email, IReferenceDataService references, bo
     return user.UserId;
 }
 
+/// <summary>
+/// Proyecta una entidad <see cref="Knowledge"/> en un objeto anónimo con los campos esenciales
+/// para la respuesta de creación (sin relaciones de navegación).
+/// </summary>
+/// <param name="entry">Entidad de conocimiento recién creada.</param>
+/// <returns>Objeto anónimo con Identificador, título, resumen, contenido, claves foráneas, versión y marcas de tiempo.</returns>
 object ToKnowledgeCreateResult(Knowledge entry)
 {
     return new
@@ -3501,6 +3751,12 @@ object ToKnowledgeCreateResult(Knowledge entry)
     };
 }
 
+/// <summary>
+/// Proyecta una entidad <see cref="Knowledge"/> en un objeto anónimo con todos los detalles,
+/// incluyendo los nombres descriptivos de las relaciones de navegación (sistema, tipo, estado, creador y etiquetas).
+/// </summary>
+/// <param name="entry">Entidad de conocimiento con sus relaciones de navegación cargadas.</param>
+/// <returns>Objeto anónimo con todos los campos del conocimiento y los nombres de sus relaciones.</returns>
 object ToKnowledgeDetails(Knowledge entry)
 {
     return new
@@ -3528,6 +3784,12 @@ object ToKnowledgeDetails(Knowledge entry)
     };
 }
 
+/// <summary>
+/// Proyecta una entidad <see cref="Issue"/> en un objeto anónimo con los campos esenciales
+/// para la respuesta de creación (sin relaciones de navegación).
+/// </summary>
+/// <param name="issue">Entidad de incidencia recién creada.</param>
+/// <returns>Objeto anónimo con Identificador, resumen, claves foráneas, números RITM/incidente y marcas de tiempo.</returns>
 object ToIssueCreateResult(Issue issue)
 {
     return new
@@ -3545,6 +3807,12 @@ object ToIssueCreateResult(Issue issue)
     };
 }
 
+/// <summary>
+/// Proyecta una entidad <see cref="Issue"/> en un objeto anónimo con todos los detalles,
+/// incluyendo los nombres descriptivos de las relaciones de navegación (sistema, estado y creador).
+/// </summary>
+/// <param name="issue">Entidad de incidencia con sus relaciones de navegación cargadas.</param>
+/// <returns>Objeto anónimo con todos los campos de la incidencia y los nombres de sus relaciones.</returns>
 object ToIssueDetails(Issue issue)
 {
     return new
@@ -3567,6 +3835,10 @@ object ToIssueDetails(Issue issue)
         issue.ResolvedAt
     };
 }
+
+// ========================================================================
+// PUNTO DE ENTRADA — Análisis de argumentos e invocación del comando
+// ========================================================================
 
 var parseResult = rootCommand.Parse(args);
 var exitCode = await parseResult.InvokeAsync();

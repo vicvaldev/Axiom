@@ -5,15 +5,33 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Axiom.Infrastructure.Persistence;
 
+/// <summary>
+/// Servicio de inicialización y siembra de datos de demostración para la aplicación Axiom.
+/// Implementa el patrón "buscar o crear" (find-or-create) para evitar duplicados
+/// en la creación de usuarios, sistemas, tipos de conocimiento, estados y datos de demo.
+/// </summary>
 public class EfStartupService : IStartupService
 {
     private readonly AxiomDbContext _context;
 
+    /// <summary>
+    /// Inicializa una nueva instancia del servicio con el contexto de base de datos especificado.
+    /// </summary>
+    /// <param name="context">Contexto de Entity Framework Core que expone las tablas del esquema Axiom.</param>
     public EfStartupService(AxiomDbContext context)
     {
         _context = context;
     }
 
+    /// <summary>
+    /// Crea un nuevo usuario o retorna el existente si ya hay uno con el mismo correo electrónico.
+    /// </summary>
+    /// <param name="email">Dirección de correo electrónico única del usuario.</param>
+    /// <param name="name">Nombre completo del usuario.</param>
+    /// <param name="ct">Token de cancelación para la operación asincrónica.</param>
+    /// <returns>
+    /// La entidad <see cref="User"/> recién creada o la existente si ya estaba registrada.
+    /// </returns>
     public async Task<User> CreateUserAsync(string email, string name, CancellationToken ct)
     {
         var existing = await _context.Users
@@ -29,6 +47,16 @@ public class EfStartupService : IStartupService
         return user;
     }
 
+    /// <summary>
+    /// Crea un nuevo sistema o retorna el existente si ya hay uno con el mismo código EAI.
+    /// </summary>
+    /// <param name="eai">Código EAI único del sistema (máximo 20 caracteres).</param>
+    /// <param name="name">Nombre descriptivo del sistema (máximo 200 caracteres).</param>
+    /// <param name="ownerUserId">Identificador del usuario propietario del sistema.</param>
+    /// <param name="ct">Token de cancelación para la operación asincrónica.</param>
+    /// <returns>
+    /// La entidad <see cref="AxiomSystem"/> recién creada o la existente si ya estaba registrada.
+    /// </returns>
     public async Task<AxiomSystem> CreateSystemAsync(string eai, string name, Guid ownerUserId, CancellationToken ct)
     {
         var existing = await _context.Systems
@@ -44,6 +72,15 @@ public class EfStartupService : IStartupService
         return system;
     }
 
+    /// <summary>
+    /// Crea un nuevo tipo de conocimiento o retorna el existente si ya hay uno con el mismo código.
+    /// </summary>
+    /// <param name="code">Código único del tipo de conocimiento (ej. "RUNBOOK", "TROUBLESHOOTING").</param>
+    /// <param name="name">Nombre descriptivo del tipo de conocimiento.</param>
+    /// <param name="ct">Token de cancelación para la operación asincrónica.</param>
+    /// <returns>
+    /// La entidad <see cref="KnowledgeType"/> recién creada o la existente si ya estaba registrada.
+    /// </returns>
     public async Task<KnowledgeType> CreateKnowledgeTypeAsync(string code, string name, CancellationToken ct)
     {
         var existing = await _context.KnowledgeTypes
@@ -59,6 +96,15 @@ public class EfStartupService : IStartupService
         return type;
     }
 
+    /// <summary>
+    /// Crea un nuevo estado de incidencia o retorna el existente si ya hay uno con el mismo código.
+    /// </summary>
+    /// <param name="code">Código único del estado de incidencia (ej. "OPEN", "RESOLVED", "CLOSED").</param>
+    /// <param name="name">Nombre descriptivo del estado de incidencia.</param>
+    /// <param name="ct">Token de cancelación para la operación asincrónica.</param>
+    /// <returns>
+    /// La entidad <see cref="IssueState"/> recién creada o la existente si ya estaba registrada.
+    /// </returns>
     public async Task<IssueState> CreateIssueStateAsync(string code, string name, CancellationToken ct)
     {
         var existing = await _context.IssueStates
@@ -74,6 +120,15 @@ public class EfStartupService : IStartupService
         return state;
     }
 
+    /// <summary>
+    /// Crea un nuevo estado de conocimiento o retorna el existente si ya hay uno con el mismo código.
+    /// </summary>
+    /// <param name="code">Código único del estado de conocimiento (ej. "DRAFT", "PUBLISHED", "ARCHIVED").</param>
+    /// <param name="name">Nombre descriptivo del estado de conocimiento.</param>
+    /// <param name="ct">Token de cancelación para la operación asincrónica.</param>
+    /// <returns>
+    /// La entidad <see cref="KnowledgeState"/> recién creada o la existente si ya estaba registrada.
+    /// </returns>
     public async Task<KnowledgeState> CreateKnowledgeStateAsync(string code, string name, CancellationToken ct)
     {
         var existing = await _context.KnowledgeStates
@@ -89,6 +144,18 @@ public class EfStartupService : IStartupService
         return state;
     }
 
+    /// <summary>
+    /// Siembra datos de demostración en la base de datos: crea usuarios, sistemas,
+    /// tipos de conocimiento, estados (incidencia y conocimiento), incidencias de ejemplo
+    /// y entradas de conocimiento relacionadas.
+    /// Todos los métodos internos usan la estrategia "buscar o crear" para garantizar
+    /// la idempotencia de la operación.
+    /// </summary>
+    /// <param name="ct">Token de cancelación para la operación asincrónica.</param>
+    /// <returns>
+    /// Un <see cref="DemoSeedResultDto"/> con el conteo de entidades creadas
+    /// (usuarios, sistemas, tipos, estados, incidencias y conocimientos).
+    /// </returns>
     public async Task<DemoSeedResultDto> SeedDemoDataAsync(CancellationToken ct)
     {
         var victor = await CreateUserAsync("victor.valdivia.dev@gmail.com", "Victor Valdivia", ct);
@@ -183,6 +250,20 @@ public class EfStartupService : IStartupService
         };
     }
 
+    /// <summary>
+    /// Busca una incidencia por su número de incidente o número RITM; si no existe, la crea.
+    /// </summary>
+    /// <param name="incidentNumber">Número de incidente (único, nullable).</param>
+    /// <param name="ritmNumber">Número RITM (único, nullable).</param>
+    /// <param name="summary">Resumen descriptivo de la incidencia.</param>
+    /// <param name="systemId">Identificador del sistema asociado.</param>
+    /// <param name="problem">Descripción del problema reportado.</param>
+    /// <param name="analysis">Análisis técnico o diagnóstico realizado.</param>
+    /// <param name="resolution">Resolución o acción correctiva aplicada.</param>
+    /// <param name="stateId">Identificador del estado de la incidencia.</param>
+    /// <param name="createdByUserId">Identificador del usuario que crea la incidencia.</param>
+    /// <param name="ct">Token de cancelación para la operación asincrónica.</param>
+    /// <returns>La entidad <see cref="Issue"/> existente o la recién creada.</returns>
     private async Task<Issue> FindOrCreateIssueAsync(
         string incidentNumber,
         string ritmNumber,
@@ -208,6 +289,20 @@ public class EfStartupService : IStartupService
         return issue;
     }
 
+    /// <summary>
+    /// Busca un conocimiento por su título; si no existe, lo crea junto con sus etiquetas asociadas.
+    /// </summary>
+    /// <param name="title">Título del conocimiento (se usa como criterio de unicidad).</param>
+    /// <param name="summary">Resumen o descripción breve del conocimiento.</param>
+    /// <param name="content">Contenido detallado del conocimiento.</param>
+    /// <param name="systemId">Identificador del sistema asociado.</param>
+    /// <param name="createdByUserId">Identificador del usuario creador.</param>
+    /// <param name="knowledgeTypeId">Identificador del tipo de conocimiento.</param>
+    /// <param name="knowledgeStateId">Identificador del estado de conocimiento.</param>
+    /// <param name="issueId">Identificador opcional de la incidencia relacionada.</param>
+    /// <param name="tags">Lista de nombres de etiquetas a asociar (se crean si no existen).</param>
+    /// <param name="ct">Token de cancelación para la operación asincrónica.</param>
+    /// <returns>La entidad <see cref="Knowledge"/> existente o la recién creada.</returns>
     private async Task<Knowledge> FindOrCreateKnowledgeAsync(
         string title,
         string summary,
@@ -239,6 +334,12 @@ public class EfStartupService : IStartupService
         return knowledge;
     }
 
+    /// <summary>
+    /// Busca una etiqueta por su nombre; si no existe, la crea.
+    /// </summary>
+    /// <param name="tagName">Nombre de la etiqueta (único).</param>
+    /// <param name="ct">Token de cancelación para la operación asincrónica.</param>
+    /// <returns>La entidad <see cref="KnowledgeTag"/> existente o la recién creada.</returns>
     private async Task<KnowledgeTag> FindOrCreateTagAsync(string tagName, CancellationToken ct)
     {
         var existing = await _context.KnowledgeTags

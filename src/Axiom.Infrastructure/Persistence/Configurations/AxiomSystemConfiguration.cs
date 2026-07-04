@@ -4,8 +4,18 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Axiom.Infrastructure.Persistence.Configurations;
 
+/// <summary>
+/// Configuración de la entidad <see cref="AxiomSystem"/> para Entity Framework Core.
+/// Define la tabla "Systems", su clave primaria autoincremental, propiedades obligatorias
+/// con restricciones de longitud y tipo, la relación con <see cref="User"/> como propietario,
+/// e índices sobre la clave foránea del propietario.
+/// </summary>
 public class AxiomSystemConfiguration : IEntityTypeConfiguration<AxiomSystem>
 {
+    /// <summary>
+    /// Configura el mapeo de la entidad <see cref="AxiomSystem"/> en el modelo de EF Core.
+    /// </summary>
+    /// <param name="builder">Constructor de la configuración de la entidad <see cref="AxiomSystem"/>.</param>
     public void Configure(EntityTypeBuilder<AxiomSystem> builder)
     {
         builder.ToTable("Systems");

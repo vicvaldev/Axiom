@@ -2,8 +2,8 @@
   "version": 1,
   "isRoot": true,
   "tools": {
-    "axiom.cli": {
-      "version": "1.1.0",
+    "axiom.tool": {
+      "version": "1.2.0",
       "commands": [
         "axiom"
       ],

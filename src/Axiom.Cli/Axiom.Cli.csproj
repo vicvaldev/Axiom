@@ -23,10 +23,10 @@
     <Nullable>enable</Nullable>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>axiom</ToolCommandName>
-    <PackageId>Axiom.Cli</PackageId>
+    <PackageId>Axiom.Tool</PackageId>
     <Version>1.2.0</Version>
-    <Authors>Victor Valdivia</Authors>
-    <Description>Axiom CLI for KnowledgeOps and operational continuity workflows.</Description>
+    <Authors>Víctor Valdivia</Authors>
+    <Description>CLI para gestión de conocimiento operacional.</Description>
     <PackageTags>axiom;knowledgeops;cli;dotnet-tool</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>

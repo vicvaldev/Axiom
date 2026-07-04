@@ -14,7 +14,7 @@
 | **Domain** | `Axiom.Domain` | Ninguna | Entidades (9), Value Objects, Excepciones |
 | **Application** | `Axiom.Application` | Domain | Casos de uso CQRS (11 commands, 5 queries, 17 handlers), validación FluentValidation, interfaces de repositorio, DTOs de proyección |
 | **Infrastructure** | `Axiom.Infrastructure` | Application + Domain | Persistencia EF Core + SQL Server, migraciones, configuraciones por entidad, repositorios, startup service |
-| **Entrypoint** | `Axiom.Cli` | Application + Infrastructure | CLI con System.CommandLine + Spectre.Console + MediatR |
+| **Entrypoint** | `Axiom.Tool` | Application + Infrastructure | CLI con System.CommandLine + Spectre.Console + MediatR |
 
 ### Stack principal
 
@@ -49,14 +49,14 @@ Axiom está pensado para usarse como herramienta de consola instalada con
 `dotnet tool`. Desde el repo, empaqueta el CLI e instálalo:
 
 ```bash
-dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
-dotnet tool install --global Axiom.Cli --add-source artifacts/packages --version 1.2.0
+dotnet pack src/Axiom.Tool/Axiom.Tool.csproj -c Release
+dotnet tool install --global Axiom.Tool --add-source artifacts/packages --version 1.2.0
 ```
 
 Para actualizar una instalación existente:
 
 ```bash
-dotnet tool update --global Axiom.Cli --add-source artifacts/packages --version 1.2.0
+dotnet tool update --global Axiom.Tool --add-source artifacts/packages --version 1.2.0
 ```
 
 Una vez instalado globalmente, usa directamente el comando `axiom`:
@@ -73,7 +73,7 @@ axiom issue create --system-eai EAI003 --state-code OPEN --created-by-email ops.
 El repo incluye un manifest de dotnet tools para uso local sin instalación global:
 
 ```bash
-dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
+dotnet pack src/Axiom.Tool/Axiom.Tool.csproj -c Release
 dotnet tool restore --add-source artifacts/packages
 ```
 
@@ -89,9 +89,9 @@ dotnet axiom knowledge list
 Sin necesidad de empaquetar ni instalar:
 
 ```bash
-dotnet run --project src/Axiom.Cli -- startup --demo
-dotnet run --project src/Axiom.Cli -- knowledge list
-dotnet run --project src/Axiom.Cli -- knowledge search "IIS" --json
+dotnet run --project src/Axiom.Tool -- startup --demo
+dotnet run --project src/Axiom.Tool -- knowledge list
+dotnet run --project src/Axiom.Tool -- knowledge search "IIS" --json
 ```
 
 ### Almacén JSON local (offline-first)
@@ -899,7 +899,7 @@ Tests de integración usan proveedor InMemory de EF Core con datos maestros seed
 
 ```bash
 dotnet build                          # Compila todo
-dotnet build src/Axiom.Cli            # Solo el CLI
-dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
+dotnet build src/Axiom.Tool            # Solo el CLI
+dotnet pack src/Axiom.Tool/Axiom.Tool.csproj -c Release
 axiom knowledge list                  # Uso recomendado con dotnet tool global
 ```

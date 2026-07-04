@@ -12,7 +12,7 @@
 | Capa | Proyecto | Dependencias | Propósito |
 |---|---|---|---|
 | **Domain** | `Axiom.Domain` | Ninguna | Entidades (9), Value Objects, Excepciones |
-| **Application** | `Axiom.Application` | Domain | Casos de uso CQRS (11 commands, 5 queries, 17 handlers), validación FluentValidation, interfaces de repositorio, DTOs de proyección |
+| **Application** | `Axiom.Application` | Domain | Casos de uso CQRS (24 commands, 5 queries, 29 handlers), validación FluentValidation, interfaces de repositorio, DTOs de proyección |
 | **Infrastructure** | `Axiom.Infrastructure` | Application + Domain | Persistencia EF Core + SQL Server, migraciones, configuraciones por entidad, repositorios, startup service |
 | **Entrypoint** | `Axiom.Tool` | Application + Infrastructure | CLI con System.CommandLine + Spectre.Console + MediatR |
 
@@ -102,9 +102,62 @@ escritura detectan automáticamente la caída de BD y operan contra este
 almacén, mostrando un aviso `[yellow]DB unavailable[/]`. No requiere
 configuración adicional.
 
+### Publicación en JFrog Artifactory
+
+Axiom puede publicarse como paquete NuGet (dotnet tool) en un feed
+JFrog Artifactory. Configuración en `nuget.config` (raíz del repo):
+
+```bash
+# 1. Editar nuget.config con la URL y API key de tu instancia JFrog
+#     - key="axiom-jfrog" -> value = URL del feed NuGet v3
+#     - <add key="<url>" value="<api-key>" /> en la sección <apikeys>
+
+# 2. Empaquetar
+dotnet pack src/Axiom.Tool/Axiom.Tool.csproj -c Release
+
+# 3. Publicar en JFrog
+dotnet nuget push artifacts/packages/Axiom.Tool.1.2.0.nupkg \
+    --source axiom-jfrog \
+    --api-key <TU_API_KEY>
+
+# 4. Instalar desde JFrog
+dotnet tool install --global Axiom.Tool \
+    --add-source https://<server>.jfrog.io/artifactory/api/nuget/v3/<feed> \
+    --version 1.2.0
+```
+
+> **Nota:** Si usas `dotnet nuget push` con API key, puedes omitir la
+> sección `<apikeys>` del `nuget.config` y pasar `--api-key` directo.
+> Para CI/CD se recomienda usar variables de entorno o un secret manager.
+
+Para desinstalar la tool global:
+
+```bash
+dotnet tool uninstall --global Axiom.Tool
+```
+
 ---
 
 ## 3. Comandos CLI
+
+### Resumen de comandos
+
+| Comando | Subcomandos | Descripción |
+|---|---|---|
+| `startup` | — | Inicializa datos maestros (interactivo o `--demo`) |
+| `startup --demo` | — | Carga datos de demostración idempotentes |
+| `knowledge` | `create`, `update`, `delete`, `list`, `show`, `search` | Gestión de entradas de conocimiento |
+| `issue` | `create`, `update`, `delete`, `list`, `show` | Gestión de issues/incidencias |
+| `user` | `create`, `update`, `delete`, `list` | Gestión de usuarios |
+| `system` | `create`, `update`, `delete`, `list` | Gestión de sistemas |
+| `knowledge-type` | `create`, `update`, `delete`, `list` | Gestión de tipos de conocimiento |
+| `knowledge-state` | `create`, `update`, `delete`, `list` | Gestión de estados de conocimiento |
+| `issue-state` | `create`, `update`, `delete`, `list` | Gestión de estados de issue |
+| `knowledge-tag` | `create`, `update`, `delete`, `list` | Gestión de tags de conocimiento |
+
+Todos los comandos soportan `--json` para salida machine-readable.
+
+---
 
 ### `startup` — Asistente interactivo
 
@@ -152,13 +205,23 @@ axiom knowledge-state list --json
 axiom issue-state list --json
 ```
 
-`knowledge create`, `knowledge update`, `issue create`, `issue update` y los comandos de actualización de datos maestros aceptan IDs o claves naturales:
+`knowledge create`, `knowledge update`, `issue create`, `issue update` y los comandos de creación/actualización de datos maestros aceptan IDs o claves naturales:
 
 ```powershell
 axiom knowledge create --system-eai EAI001 --type-code RUNBOOK --state-code PUBLISHED --created-by-email ops.agent@axiom.local --title "Runbook" --content "Contenido" --json
 axiom knowledge update <guid> --system-eai EAI001 --type-code RUNBOOK --state-code PUBLISHED --title "Runbook v2" --content "Actualizado" --json
 axiom issue create --system-eai EAI003 --state-code OPEN --created-by-email ops.agent@axiom.local --summary "Incidente" --problem "Detalle" --json
 axiom issue update <guid> --system-eai EAI003 --state-code RESOLVED --summary "Incidente" --problem "Detalle" --resolution "Solucionado" --json
+
+Creación de datos maestros:
+```powershell
+axiom user create --email "ops@axiom.local" --name "Operaciones" --json
+axiom system create --eai EAI009 --name "Nuevo Sistema" --owner-email "ops@axiom.local" --json
+axiom knowledge-type create --code RUNBOOK --name "Runbook" --json
+axiom knowledge-state create --code PUBLISHED --name "Publicado" --json
+axiom issue-state create --code RESOLVED --name "Resuelto" --json
+axiom knowledge-tag create --name "iis" --json
+```
 
 Actualización de datos maestros:
 ```powershell
@@ -168,6 +231,18 @@ axiom knowledge-type update <id> --code RUNBOOK --name "Runbook" --json
 axiom knowledge-state update <id> --code PUBLISHED --name "Publicado" --json
 axiom issue-state update <id> --code RESOLVED --name "Resuelto" --json
 axiom knowledge-tag update <id> --name "nuevo-tag" --json
+```
+
+Eliminación:
+```powershell
+axiom knowledge delete <guid> --json
+axiom issue delete <guid> --json
+axiom user delete <guid> --json
+axiom system delete <id> --json
+axiom knowledge-type delete <id> --json
+axiom knowledge-state delete <id> --json
+axiom issue-state delete <id> --json
+axiom knowledge-tag delete <id> --json
 ```
 
 ### `knowledge create`
@@ -261,6 +336,27 @@ Si no existe: `Knowledge entry not found.`
 
 Si la BD no está disponible, lee desde el almacén JSON local y muestra
 `(local store)` en el encabezado.
+
+### `knowledge delete <guid>`
+
+Elimina una entrada de conocimiento por GUID.
+
+```bash
+axiom knowledge delete 177ed8be-6ec1-49f6-8439-8164aa2ea180
+```
+
+| Argumento | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `id` | Sí | `guid` | GUID de la entrada |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Knowledge entry deleted: <guid>
+```
+
+Si no existe: `Knowledge entry not found.`
+Si la BD no está disponible, elimina del almacén JSON local.
 
 ### `knowledge search <query>`
 
@@ -442,6 +538,17 @@ User deleted: <guid>
 Si no existe: `User not found.`
 Si la BD no está disponible, elimina del almacén JSON local.
 
+### `user list`
+
+Lista todos los usuarios registrados.
+
+```powershell
+axiom user list
+axiom user list --json
+```
+
+Columnas: `Id` (8 chars), `Email`, `Name`.
+
 ### `system update <id>`
 
 Actualiza un sistema existente.
@@ -509,6 +616,17 @@ System deleted: <id>
 Si no existe: `System not found.`
 Si la BD no está disponible, elimina del almacén JSON local.
 
+### `system list`
+
+Lista todos los sistemas registrados.
+
+```powershell
+axiom system list
+axiom system list --json
+```
+
+Columnas: `Id`, `EAI`, `Name`, `Owner`.
+
 ### `knowledge-type update <id>`
 
 Actualiza un tipo de conocimiento.
@@ -565,6 +683,17 @@ Knowledge type deleted: <id>
 
 Si no existe: `Knowledge type not found.`
 Si la BD no está disponible, elimina del almacén JSON local.
+
+### `knowledge-type list`
+
+Lista todos los tipos de conocimiento.
+
+```powershell
+axiom knowledge-type list
+axiom knowledge-type list --json
+```
+
+Columnas: `Id`, `Code`, `Name`.
 
 ### `knowledge-state update <id>`
 
@@ -623,6 +752,17 @@ Knowledge state deleted: <id>
 Si no existe: `Knowledge state not found.`
 Si la BD no está disponible, elimina del almacén JSON local.
 
+### `knowledge-state list`
+
+Lista todos los estados de conocimiento.
+
+```powershell
+axiom knowledge-state list
+axiom knowledge-state list --json
+```
+
+Columnas: `Id`, `Code`, `Name`.
+
 ### `issue-state update <id>`
 
 Actualiza un estado de issue.
@@ -679,6 +819,17 @@ Issue state deleted: <id>
 
 Si no existe: `Issue state not found.`
 Si la BD no está disponible, elimina del almacén JSON local.
+
+### `issue-state list`
+
+Lista todos los estados de issue.
+
+```powershell
+axiom issue-state list
+axiom issue-state list --json
+```
+
+Columnas: `Id`, `Code`, `Name`.
 
 ### `knowledge-tag list`
 
@@ -895,11 +1046,27 @@ Tests de integración usan proveedor InMemory de EF Core con datos maestros seed
 
 ---
 
-## 9. Build
+## 9. Build & Publish
 
 ```bash
-dotnet build                          # Compila todo
-dotnet build src/Axiom.Tool            # Solo el CLI
+# Compilar
+dotnet build                                          # Todos los proyectos
+dotnet build src/Axiom.Tool                            # Solo el CLI
+
+# Empaquetar como dotnet tool
 dotnet pack src/Axiom.Tool/Axiom.Tool.csproj -c Release
-axiom knowledge list                  # Uso recomendado con dotnet tool global
+# Output: artifacts/packages/Axiom.Tool.<version>.nupkg
+
+# Publicar en JFrog Artifactory
+dotnet nuget push artifacts/packages/Axiom.Tool.1.2.0.nupkg \
+    --source axiom-jfrog \
+    --api-key <TU_API_KEY>
+
+# Instalar/actualizar tool global
+dotnet tool install --global Axiom.Tool --add-source artifacts/packages --version 1.2.0
+dotnet tool update --global Axiom.Tool --add-source artifacts/packages --version 1.2.0
+
+# Usar
+axiom startup --demo
+axiom knowledge list
 ```

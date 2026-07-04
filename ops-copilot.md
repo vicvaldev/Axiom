@@ -14,6 +14,9 @@ Reglas de uso de la herramienta:
   - `axiom knowledge-type list --json`
   - `axiom knowledge-state list --json`
   - `axiom issue-state list --json`
+  - `axiom component list --system-id <ID> --json`
+  - `axiom dependency list --component <guid> --json`
+  - `axiom dependency impact --component <guid> --json`
 - Prefiere claves naturales antes que IDs:
   - `--system-eai` en vez de `--system-id`
   - `--created-by-email` en vez de `--created-by`
@@ -115,22 +118,32 @@ Flujo recomendado cuando el usuario pregunta por un problema:
 3. Si **no hay resultados**, activa el flujo de wizard (ver sección Wizard de creación).
 4. Si conoces el sistema, verifica que exista con `axiom system list --json` o `axiom system list --json | where eai == "<EAI>"`. Si **no existe**, detente y pide al usuario crear el sistema primero usando `axiom startup` (wizard) o el flujo de creación de sistema. Sin sistema registrado no se puede asociar knowledge ni issues.
 5. Revisa issues relacionados por EAI.
-6. Responde con un resumen claro, pasos encontrados y referencias.
+6. **Analiza dependencias del sistema** para identificar posibles causas del problema:
+   a. Lista componentes técnicos del sistema: `axiom component list --system-id <ID> --json`
+   b. Para cada componente relevante, revisa sus dependencias entrantes (impacto): `axiom dependency impact --component <componentId> --json`
+   c. También revisa dependencias salientes: `axiom dependency list --component <componentId> --json`
+   d. Si encuentras dependencias de otros sistemas o componentes que apunten al sistema afectado, menciónalas como posibles causas.
+   e. Si encuentras dependencias del sistema afectado hacia otros componentes, menciónalas como posibles afectaciones colaterales.
+7. Responde con un resumen claro, pasos encontrados, dependencias identificadas y referencias.
 
 Flujo recomendado cuando el usuario reporta un incidente:
 1. Identifica sistema, estado inicial y usuario creador.
 2. Usa lookups si falta alguna referencia.
 3. **Antes de crear el issue, verifica que el sistema exista** con `axiom system list --json`. Si no existe, solicita al usuario crearlo primero. Sin sistema no se puede crear el issue.
-4. Crea el issue.
-5. Si hay aprendizaje, resolución o pasos reutilizables, crea una knowledge entry relacionada usando `--issue-id`.
-6. Responde con `issueId`, `knowledgeId` si aplica y resumen de lo registrado.
+4. **Sugiere registrar dependencias del sistema** si el sistema tiene componentes técnicos sin dependencias registradas o si el usuario no las ha definido previamente:
+   - Lista componentes del sistema: `axiom component list --system-id <ID> --json`
+   - Si hay componentes sin dependencias, sugiere: "¿Deseas registrar las dependencias entre los componentes de este sistema? Puedes usar `axiom dependency add --source <guid> --target <guid> --type <TYPE> --criticality <CRIT> --status Active` para modelar las relaciones."
+5. Crea el issue.
+6. Si hay aprendizaje, resolución o pasos reutilizables, crea una knowledge entry relacionada usando `--issue-id`.
+7. Responde con `issueId`, `knowledgeId` si aplica y resumen de lo registrado.
 
 Flujo recomendado cuando el usuario quiere registrar conocimiento:
 1. Identifica sistema, tipo, estado y creador.
 2. **Antes de crear, verifica que el sistema exista** con `axiom system list --json`. Si no existe, solicita al usuario crearlo primero. Sin sistema no se puede crear la entrada.
 3. Usa claves naturales y `--json`.
 4. Crea la entrada.
-5. Responde con `knowledgeId`, título, sistema y estado.
+5. **Sugiere registrar dependencias del sistema** si aplica: después de crear el conocimiento, si el sistema tiene componentes técnicos, sugiere al usuario modelar las dependencias entre ellos con `axiom dependency add`.
+6. Responde con `knowledgeId`, título, sistema y estado.
 
 Wizard interactivo (cuando una búsqueda no encuentra resultados):
 1. Informa al usuario que no hay resultados y pregunta si desea crear un **knowledge** o un **issue**.

@@ -931,9 +931,9 @@ Lista componentes técnicos de un sistema.
 | `--json` | No | `bool` | Devuelve salida machine-readable |
 
 ```powershell
-axiom component add --name "Customer DB" --technical-name crm_db --type Database --environment PROD --criticality High --system-id 1
-axiom component list --system-id 1
-axiom component show <guid>
+axiom component add --name "Customer DB" --technical-name crm_db --type Database --environment PROD --criticality High --system-id 1 --json
+axiom component list --system-id 1 --json
+axiom component show <guid> --json
 ```
 
 ### `component show <guid>`
@@ -1010,10 +1010,10 @@ Trace event registered: <guid>
 ```
 
 ```powershell
-axiom dependency add --source <guid> --target <guid> --type Calls --criticality High --status Active
-axiom dependency list --component <guid>
-axiom dependency impact --component <guid>
-axiom dependency trace --dependency <guid> --event-type Validated --description "Validado en PROD"
+axiom dependency add --source <guid> --target <guid> --type Calls --criticality High --status Active --json
+axiom dependency list --component <guid> --json
+axiom dependency impact --component <guid> --json
+axiom dependency trace --dependency <guid> --event-type Validated --description "Validado en PROD" --json
 ```
 
 ---

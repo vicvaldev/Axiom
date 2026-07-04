@@ -12,7 +12,7 @@
 | Capa | Proyecto | Dependencias | Propósito |
 |---|---|---|---|
 | **Domain** | `Axiom.Domain` | Ninguna | Entidades (9), Value Objects, Excepciones |
-| **Application** | `Axiom.Application` | Domain | Casos de uso CQRS (5 commands, 5 queries, 11 handlers), validación FluentValidation, interfaces de repositorio, DTOs de proyección |
+| **Application** | `Axiom.Application` | Domain | Casos de uso CQRS (11 commands, 5 queries, 17 handlers), validación FluentValidation, interfaces de repositorio, DTOs de proyección |
 | **Infrastructure** | `Axiom.Infrastructure` | Application + Domain | Persistencia EF Core + SQL Server, migraciones, configuraciones por entidad, repositorios, startup service |
 | **Entrypoint** | `Axiom.Cli` | Application + Infrastructure | CLI con System.CommandLine + Spectre.Console + MediatR |
 
@@ -50,13 +50,13 @@ Axiom está pensado para usarse como herramienta de consola instalada con
 
 ```bash
 dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
-dotnet tool install --global Axiom.Cli --add-source artifacts/packages --version 1.0.0
+dotnet tool install --global Axiom.Cli --add-source artifacts/packages --version 1.2.0
 ```
 
 Para actualizar una instalación existente:
 
 ```bash
-dotnet tool update --global Axiom.Cli --add-source artifacts/packages --version 1.0.0
+dotnet tool update --global Axiom.Cli --add-source artifacts/packages --version 1.2.0
 ```
 
 Una vez instalado globalmente, usa directamente el comando `axiom`:
@@ -152,13 +152,22 @@ axiom knowledge-state list --json
 axiom issue-state list --json
 ```
 
-`knowledge create`, `knowledge update`, `issue create` e `issue update` aceptan IDs o claves naturales:
+`knowledge create`, `knowledge update`, `issue create`, `issue update` y los comandos de actualización de datos maestros aceptan IDs o claves naturales:
 
 ```powershell
 axiom knowledge create --system-eai EAI001 --type-code RUNBOOK --state-code PUBLISHED --created-by-email ops.agent@axiom.local --title "Runbook" --content "Contenido" --json
 axiom knowledge update <guid> --system-eai EAI001 --type-code RUNBOOK --state-code PUBLISHED --title "Runbook v2" --content "Actualizado" --json
 axiom issue create --system-eai EAI003 --state-code OPEN --created-by-email ops.agent@axiom.local --summary "Incidente" --problem "Detalle" --json
 axiom issue update <guid> --system-eai EAI003 --state-code RESOLVED --summary "Incidente" --problem "Detalle" --resolution "Solucionado" --json
+
+Actualización de datos maestros:
+```powershell
+axiom user update <guid> --email "nuevo@email.com" --name "Nuevo Nombre" --json
+axiom system update <id> --eai EAI001 --name "Nuevo Sistema" --owner-email "owner@email.com" --json
+axiom knowledge-type update <id> --code RUNBOOK --name "Runbook" --json
+axiom knowledge-state update <id> --code PUBLISHED --name "Publicado" --json
+axiom issue-state update <id> --code RESOLVED --name "Resuelto" --json
+axiom knowledge-tag update <id> --name "nuevo-tag" --json
 ```
 
 ### `knowledge create`
@@ -355,6 +364,386 @@ Issue updated: <guid>
 Si el GUID no existe: `Issue not found.`
 Si la BD no está disponible, actualiza en el almacén JSON local.
 
+### `issue delete <id>`
+
+Elimina un issue por GUID.
+
+```bash
+axiom issue delete 74fc9278-5376-440d-9d72-38b68d5ff3de
+```
+
+| Argumento | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `id` | Sí | `guid` | GUID del issue |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Issue deleted: <guid>
+```
+
+Si no existe: `Issue not found.`
+Si la BD no está disponible, elimina del almacén JSON local.
+
+### `user update <id>`
+
+Actualiza un usuario existente.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--email` | Sí | `string` | Nuevo email |
+| `--name` | Sí | `string` | Nuevo nombre |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+User updated: <guid>
+  Email: <email>
+  Name: <name>
+```
+
+### `user create`
+
+Crea un nuevo usuario.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--email` | Sí | `string` | Email del usuario |
+| `--name` | Sí | `string` | Nombre del usuario |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+User created: <guid>
+  Email: <email>
+  Name: <name>
+```
+
+Si la BD no está disponible, guarda en el almacén JSON local.
+
+### `user delete <id>`
+
+Elimina un usuario por GUID.
+
+```bash
+axiom user delete 74fc9278-5376-440d-9d72-38b68d5ff3de
+```
+
+| Argumento | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `id` | Sí | `guid` | GUID del usuario |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+User deleted: <guid>
+```
+
+Si no existe: `User not found.`
+Si la BD no está disponible, elimina del almacén JSON local.
+
+### `system update <id>`
+
+Actualiza un sistema existente.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--eai` | Sí | `string` | Código EAI |
+| `--name` | Sí | `string` | Nombre del sistema |
+| `--owner-id` | Sí* | `guid` | ID del usuario propietario |
+| `--owner-email` | Sí* | `string` | Email del usuario propietario |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+`*` Debe usarse una sola forma: ID o email, no ambas.
+
+**Output:**
+```
+System updated: <id>
+  EAI: <eai>
+  Name: <name>
+  Owner: <ownerUserId>
+```
+
+### `system create`
+
+Crea un nuevo sistema.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--eai` | Sí | `string` | Código EAI (max 20 chars) |
+| `--name` | Sí | `string` | Nombre del sistema |
+| `--owner-id` | Sí* | `guid` | ID del usuario propietario |
+| `--owner-email` | Sí* | `string` | Email del usuario propietario |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+`*` Debe usarse una sola forma: ID o email, no ambas.
+
+**Output:**
+```
+System created: <id>
+  EAI: <eai>
+  Name: <name>
+  Owner: <ownerUserId>
+```
+
+Si la BD no está disponible, guarda en el almacén JSON local.
+
+### `system delete <id>`
+
+Elimina un sistema por ID numérico.
+
+```bash
+axiom system delete 1
+```
+
+| Argumento | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `id` | Sí | `long` | ID del sistema |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+System deleted: <id>
+```
+
+Si no existe: `System not found.`
+Si la BD no está disponible, elimina del almacén JSON local.
+
+### `knowledge-type update <id>`
+
+Actualiza un tipo de conocimiento.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--code` | Sí | `string` | Código del tipo |
+| `--name` | Sí | `string` | Nombre del tipo |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Knowledge type updated: <id>
+  Code: <code>
+  Name: <name>
+```
+
+### `knowledge-type create`
+
+Crea un nuevo tipo de conocimiento.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--code` | Sí | `string` | Código del tipo |
+| `--name` | Sí | `string` | Nombre del tipo |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Knowledge type created: <id>
+  Code: <code>
+  Name: <name>
+```
+
+Si la BD no está disponible, guarda en el almacén JSON local.
+
+### `knowledge-type delete <id>`
+
+Elimina un tipo de conocimiento por ID numérico.
+
+```bash
+axiom knowledge-type delete 1
+```
+
+| Argumento | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `id` | Sí | `long` | ID del tipo de conocimiento |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Knowledge type deleted: <id>
+```
+
+Si no existe: `Knowledge type not found.`
+Si la BD no está disponible, elimina del almacén JSON local.
+
+### `knowledge-state update <id>`
+
+Actualiza un estado de conocimiento.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--code` | Sí | `string` | Código del estado |
+| `--name` | Sí | `string` | Nombre del estado |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Knowledge state updated: <id>
+  Code: <code>
+  Name: <name>
+```
+
+### `knowledge-state create`
+
+Crea un nuevo estado de conocimiento.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--code` | Sí | `string` | Código del estado |
+| `--name` | Sí | `string` | Nombre del estado |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Knowledge state created: <id>
+  Code: <code>
+  Name: <name>
+```
+
+Si la BD no está disponible, guarda en el almacén JSON local.
+
+### `knowledge-state delete <id>`
+
+Elimina un estado de conocimiento por ID numérico.
+
+```bash
+axiom knowledge-state delete 1
+```
+
+| Argumento | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `id` | Sí | `int` | ID del estado de conocimiento |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Knowledge state deleted: <id>
+```
+
+Si no existe: `Knowledge state not found.`
+Si la BD no está disponible, elimina del almacén JSON local.
+
+### `issue-state update <id>`
+
+Actualiza un estado de issue.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--code` | Sí | `string` | Código del estado |
+| `--name` | Sí | `string` | Nombre del estado |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Issue state updated: <id>
+  Code: <code>
+  Name: <name>
+```
+
+### `issue-state create`
+
+Crea un nuevo estado de issue.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--code` | Sí | `string` | Código del estado |
+| `--name` | Sí | `string` | Nombre del estado |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Issue state created: <id>
+  Code: <code>
+  Name: <name>
+```
+
+Si la BD no está disponible, guarda en el almacén JSON local.
+
+### `issue-state delete <id>`
+
+Elimina un estado de issue por ID numérico.
+
+```bash
+axiom issue-state delete 1
+```
+
+| Argumento | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `id` | Sí | `int` | ID del estado de issue |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Issue state deleted: <id>
+```
+
+Si no existe: `Issue state not found.`
+Si la BD no está disponible, elimina del almacén JSON local.
+
+### `knowledge-tag list`
+
+Lista todos los tags de conocimiento.
+
+```powershell
+axiom knowledge-tag list
+axiom knowledge-tag list --json
+```
+
+Columnas: `Id`, `Name`.
+
+### `knowledge-tag update <id>`
+
+Actualiza un tag de conocimiento.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--name` | Sí | `string` | Nuevo nombre del tag |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Knowledge tag updated: <id>
+  Name: <tagName>
+```
+
+### `knowledge-tag create`
+
+Crea un nuevo tag de conocimiento.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--name` | Sí | `string` | Nombre del tag |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Knowledge tag created: <id>
+  Name: <tagName>
+```
+
+Si la BD no está disponible, guarda en el almacén JSON local.
+
+### `knowledge-tag delete <id>`
+
+Elimina un tag de conocimiento por ID numérico.
+
+```bash
+axiom knowledge-tag delete 1
+```
+
+| Argumento | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `id` | Sí | `long` | ID del tag |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Knowledge tag deleted: <id>
+```
+
+Si no existe: `Knowledge tag not found.`
+Si la BD no está disponible, elimina del almacén JSON local.
+
 ---
 
 ## 4. Modelo de Datos (9 entidades)
@@ -394,12 +783,31 @@ Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). La
 ### Commands
 
 | Command | Handler | Retorna |
-|---|---|---|
+|---|---|---|---|
 | `CreateKnowledgeCommand` | `CreateKnowledgeHandler` | `Knowledge` |
 | `UpdateKnowledgeCommand` | `UpdateKnowledgeHandler` | `Knowledge?` |
 | `DeleteKnowledgeCommand` | `DeleteKnowledgeHandler` | `bool` |
 | `CreateIssueCommand` | `CreateIssueHandler` | `Issue` |
 | `UpdateIssueCommand` | `UpdateIssueHandler` | `Issue?` |
+| `DeleteIssueCommand` | `DeleteIssueHandler` | `bool` |
+| `CreateUserCommand` | `CreateUserHandler` | `User` |
+| `UpdateUserCommand` | `UpdateUserHandler` | `User?` |
+| `DeleteUserCommand` | `DeleteUserHandler` | `bool` |
+| `CreateSystemCommand` | `CreateSystemHandler` | `AxiomSystem` |
+| `UpdateSystemCommand` | `UpdateSystemHandler` | `AxiomSystem?` |
+| `DeleteSystemCommand` | `DeleteSystemHandler` | `bool` |
+| `CreateKnowledgeTypeCommand` | `CreateKnowledgeTypeHandler` | `KnowledgeType` |
+| `UpdateKnowledgeTypeCommand` | `UpdateKnowledgeTypeHandler` | `KnowledgeType?` |
+| `DeleteKnowledgeTypeCommand` | `DeleteKnowledgeTypeHandler` | `bool` |
+| `CreateKnowledgeStateCommand` | `CreateKnowledgeStateHandler` | `KnowledgeState` |
+| `UpdateKnowledgeStateCommand` | `UpdateKnowledgeStateHandler` | `KnowledgeState?` |
+| `DeleteKnowledgeStateCommand` | `DeleteKnowledgeStateHandler` | `bool` |
+| `CreateIssueStateCommand` | `CreateIssueStateHandler` | `IssueState` |
+| `UpdateIssueStateCommand` | `UpdateIssueStateHandler` | `IssueState?` |
+| `DeleteIssueStateCommand` | `DeleteIssueStateHandler` | `bool` |
+| `CreateKnowledgeTagCommand` | `CreateKnowledgeTagHandler` | `KnowledgeTag` |
+| `UpdateKnowledgeTagCommand` | `UpdateKnowledgeTagHandler` | `KnowledgeTag?` |
+| `DeleteKnowledgeTagCommand` | `DeleteKnowledgeTagHandler` | `bool` |
 
 ### Queries
 
@@ -426,10 +834,16 @@ Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). La
 ### Interfaces de repositorio
 
 | Interfaz | Métodos |
-|---|---|
+|---|---|---|
 | `IKnowledgeRepository` | `SaveAsync`, `GetByIdAsync`, `SearchAsync`, `GetAllAsync`, `DeleteAsync` |
-| `IIssueRepository` | `SaveAsync`, `GetByIdAsync`, `GetAllAsync` |
+| `IIssueRepository` | `SaveAsync`, `GetByIdAsync`, `GetAllAsync`, `GetByEaiAsync`, `DeleteAsync` |
 | `ITagRepository` | `FindOrCreateAsync(string)` |
+| `IUserRepository` | `GetByIdAsync`, `SaveAsync`, `DeleteAsync` |
+| `ISystemRepository` | `GetByIdAsync`, `SaveAsync`, `DeleteAsync` |
+| `IKnowledgeTypeRepository` | `GetByIdAsync`, `SaveAsync`, `DeleteAsync` |
+| `IKnowledgeStateRepository` | `GetByIdAsync`, `SaveAsync`, `DeleteAsync` |
+| `IIssueStateRepository` | `GetByIdAsync`, `SaveAsync`, `DeleteAsync` |
+| `IKnowledgeTagRepository` | `GetByIdAsync`, `SaveAsync`, `GetAllAsync`, `DeleteAsync` |
 | `IStartupService` | `CreateUserAsync`, `CreateSystemAsync`, `CreateKnowledgeTypeAsync`, `CreateIssueStateAsync`, `CreateKnowledgeStateAsync`, `SeedDemoDataAsync` |
 | `IReferenceDataService` | Listado y resolución de usuarios, sistemas, tipos y estados por claves naturales |
 
@@ -441,7 +855,7 @@ Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). La
 
 - **DbContext**: `AxiomDbContext` con 9 `DbSet`s y configuraciones vía `IEntityTypeConfiguration<T>`
 - **Configuraciones**: 8 archivos en `Persistence/Configurations/` — una por entidad (PKs, FKs, indexes, tipos, delete behavior)
-- **Repositorios**: `EfKnowledgeRepository`, `EfIssueRepository`, `EfTagRepository`, `EfStartupService`
+- **Repositorios**: `EfKnowledgeRepository`, `EfIssueRepository`, `EfTagRepository`, `EfUserRepository`, `EfSystemRepository`, `EfKnowledgeTypeRepository`, `EfKnowledgeStateRepository`, `EfIssueStateRepository`, `EfKnowledgeTagRepository`, `EfStartupService`
 - **Migraciones**: `src/Axiom.Infrastructure/Migrations/` — `InitialCreate` ya aplicada (EF Core 10.0.9)
 - **FK delete behavior**: `Restrict` para la mayoría, `Cascade` para join table `KnowledgeKnowledgeTags`, `SetNull` para Knowledge → Issue
 

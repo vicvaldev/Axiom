@@ -1350,6 +1350,72 @@ issueShowCmd.SetAction((ParseResult result) =>
 });
 
 issueCmd.Subcommands.Add(issueShowCmd);
+
+var issueDeleteCmd = new Command("delete", "Delete an issue record");
+var issueDeleteIdArg = new Argument<Guid>("id");
+var issueDeleteJsonOpt = NewJsonOption();
+issueDeleteCmd.Arguments.Add(issueDeleteIdArg);
+issueDeleteCmd.Options.Add(issueDeleteJsonOpt);
+
+issueDeleteCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(issueDeleteJsonOpt);
+
+    var id = result.GetValue(issueDeleteIdArg);
+
+    try
+    {
+        var ok = mediator.Send(new DeleteIssueCommand(id)).Result;
+        if (!ok)
+        {
+            WriteError("Issue not found.", json);
+            return;
+        }
+
+        if (json)
+        {
+            WriteJson(new { deleted = true, id });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]Issue deleted:[/] {id}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        try
+        {
+            var ok = store.DeleteAsync<JsonIssueEntry>("issues", e => e.IssueId == id).Result;
+            if (!ok)
+            {
+                WriteError("Issue not found.", json);
+                return;
+            }
+
+            if (json)
+            {
+                WriteJson(new { deleted = true, id });
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - Issue deleted from local store:[/] {id}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to delete in local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+issueCmd.Subcommands.Add(issueDeleteCmd);
 rootCommand.Subcommands.Add(issueCmd);
 
 var userCmd = new Command("user", "Manage users");
@@ -1408,6 +1474,235 @@ userListCmd.SetAction((ParseResult result) =>
     }
 });
 userCmd.Subcommands.Add(userListCmd);
+
+var userUpdateCmd = new Command("update", "Update a user");
+var userUpdateIdArg = new Argument<Guid>("id");
+var userUpdateEmailOpt = new Option<string>("--email") { Required = true };
+var userUpdateNameOpt = new Option<string>("--name") { Required = true };
+var userUpdateJsonOpt = NewJsonOption();
+userUpdateCmd.Arguments.Add(userUpdateIdArg);
+userUpdateCmd.Options.Add(userUpdateEmailOpt);
+userUpdateCmd.Options.Add(userUpdateNameOpt);
+userUpdateCmd.Options.Add(userUpdateJsonOpt);
+
+userUpdateCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(userUpdateJsonOpt);
+
+    var id = result.GetValue(userUpdateIdArg);
+    var email = result.GetValue(userUpdateEmailOpt)!;
+    var name = result.GetValue(userUpdateNameOpt)!;
+
+    try
+    {
+        var command = new UpdateUserCommand(id, email, name);
+        var entry = mediator.Send(command).Result;
+
+        if (entry is null)
+        {
+            WriteError("User not found.", json);
+            return;
+        }
+
+        if (json)
+        {
+            WriteJson(new
+            {
+                entry.UserId,
+                entry.Email,
+                entry.Name
+            });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]User updated:[/] {entry.UserId}");
+        AnsiConsole.MarkupLine($"  [bold]Email:[/] {entry.Email}");
+        AnsiConsole.MarkupLine($"  [bold]Name:[/] {entry.Name}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        var existingEntry = store.FindByIdAsync<JsonUserEntry>("users", e => e.UserId == id).Result;
+        if (existingEntry is null)
+        {
+            WriteError("User not found.", json);
+            return;
+        }
+
+        var updatedEntry = new JsonUserEntry
+        {
+            UserId = id,
+            Email = email,
+            Name = name
+        };
+
+        try
+        {
+            store.UpdateAsync("users", e => e.UserId == id, updatedEntry).Wait();
+
+            if (json)
+            {
+                WriteJson(updatedEntry);
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - User updated in local store:[/] {id}");
+            AnsiConsole.MarkupLine($"  [bold]Email:[/] {email}");
+            AnsiConsole.MarkupLine($"  [bold]Name:[/] {name}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to update in local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+userCmd.Subcommands.Add(userUpdateCmd);
+
+var userCreateCmd = new Command("create", "Create a new user");
+var userCreateEmailOpt = new Option<string>("--email") { Required = true };
+var userCreateNameOpt = new Option<string>("--name") { Required = true };
+var userCreateJsonOpt = NewJsonOption();
+userCreateCmd.Options.Add(userCreateEmailOpt);
+userCreateCmd.Options.Add(userCreateNameOpt);
+userCreateCmd.Options.Add(userCreateJsonOpt);
+
+userCreateCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(userCreateJsonOpt);
+
+    var email = result.GetValue(userCreateEmailOpt)!;
+    var name = result.GetValue(userCreateNameOpt)!;
+
+    try
+    {
+        var entry = mediator.Send(new CreateUserCommand(email, name)).Result;
+
+        if (json)
+        {
+            WriteJson(new { entry.UserId, entry.Email, entry.Name });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]User created:[/] {entry.UserId}");
+        AnsiConsole.MarkupLine($"  [bold]Email:[/] {entry.Email}");
+        AnsiConsole.MarkupLine($"  [bold]Name:[/] {entry.Name}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        var userId = Guid.NewGuid();
+        var jsonEntry = new JsonUserEntry
+        {
+            UserId = userId,
+            Email = email,
+            Name = name
+        };
+
+        try
+        {
+            store.AppendAsync("users", jsonEntry).Wait();
+
+            if (json)
+            {
+                WriteJson(jsonEntry);
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - User saved to local store:[/] {userId}");
+            AnsiConsole.MarkupLine($"  [bold]Email:[/] {email}");
+            AnsiConsole.MarkupLine($"  [bold]Name:[/] {name}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to save to local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+userCmd.Subcommands.Add(userCreateCmd);
+
+var userDeleteCmd = new Command("delete", "Delete a user");
+var userDeleteIdArg = new Argument<Guid>("id");
+var userDeleteJsonOpt = NewJsonOption();
+userDeleteCmd.Arguments.Add(userDeleteIdArg);
+userDeleteCmd.Options.Add(userDeleteJsonOpt);
+
+userDeleteCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(userDeleteJsonOpt);
+
+    var id = result.GetValue(userDeleteIdArg);
+
+    try
+    {
+        var ok = mediator.Send(new DeleteUserCommand(id)).Result;
+        if (!ok)
+        {
+            WriteError("User not found.", json);
+            return;
+        }
+
+        if (json)
+        {
+            WriteJson(new { deleted = true, id });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]User deleted:[/] {id}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        try
+        {
+            var ok = store.DeleteAsync<JsonUserEntry>("users", e => e.UserId == id).Result;
+            if (!ok)
+            {
+                WriteError("User not found.", json);
+                return;
+            }
+
+            if (json)
+            {
+                WriteJson(new { deleted = true, id });
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - User deleted from local store:[/] {id}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to delete in local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+userCmd.Subcommands.Add(userDeleteCmd);
 rootCommand.Subcommands.Add(userCmd);
 
 var systemCmd = new Command("system", "Manage systems");
@@ -1466,6 +1761,257 @@ systemListCmd.SetAction((ParseResult result) =>
     }
 });
 systemCmd.Subcommands.Add(systemListCmd);
+
+var systemUpdateCmd = new Command("update", "Update a system");
+var systemUpdateIdArg = new Argument<long>("id");
+var systemUpdateEaiOpt = new Option<string>("--eai") { Required = true };
+var systemUpdateNameOpt = new Option<string>("--name") { Required = true };
+var systemUpdateOwnerIdOpt = new Option<Guid>("--owner-id");
+var systemUpdateOwnerEmailOpt = new Option<string>("--owner-email");
+var systemUpdateJsonOpt = NewJsonOption();
+systemUpdateCmd.Arguments.Add(systemUpdateIdArg);
+systemUpdateCmd.Options.Add(systemUpdateEaiOpt);
+systemUpdateCmd.Options.Add(systemUpdateNameOpt);
+systemUpdateCmd.Options.Add(systemUpdateOwnerIdOpt);
+systemUpdateCmd.Options.Add(systemUpdateOwnerEmailOpt);
+systemUpdateCmd.Options.Add(systemUpdateJsonOpt);
+
+systemUpdateCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var references = scope.ServiceProvider.GetRequiredService<IReferenceDataService>();
+    var json = result.GetValue(systemUpdateJsonOpt);
+
+    var id = result.GetValue(systemUpdateIdArg);
+    var eai = result.GetValue(systemUpdateEaiOpt)!;
+    var name = result.GetValue(systemUpdateNameOpt)!;
+    var ownerUserId = ResolveUserId(result.GetValue(systemUpdateOwnerIdOpt), result.GetValue(systemUpdateOwnerEmailOpt), references, json);
+    if (ownerUserId is null)
+    {
+        return;
+    }
+
+    try
+    {
+        var command = new UpdateSystemCommand(id, eai, name, ownerUserId.Value);
+        var entry = mediator.Send(command).Result;
+
+        if (entry is null)
+        {
+            WriteError("System not found.", json);
+            return;
+        }
+
+        if (json)
+        {
+            WriteJson(new
+            {
+                entry.SystemId,
+                entry.EAI,
+                entry.Name,
+                entry.OwnerUserId
+            });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]System updated:[/] {entry.SystemId}");
+        AnsiConsole.MarkupLine($"  [bold]EAI:[/] {entry.EAI}");
+        AnsiConsole.MarkupLine($"  [bold]Name:[/] {entry.Name}");
+        AnsiConsole.MarkupLine($"  [bold]Owner:[/] {entry.OwnerUserId}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        var existingEntry = store.FindByIdAsync<JsonSystemEntry>("systems", e => e.SystemId == id).Result;
+        if (existingEntry is null)
+        {
+            WriteError("System not found.", json);
+            return;
+        }
+
+        var updatedEntry = new JsonSystemEntry
+        {
+            SystemId = id,
+            EAI = eai,
+            Name = name,
+            OwnerUserId = ownerUserId.Value
+        };
+
+        try
+        {
+            store.UpdateAsync("systems", e => e.SystemId == id, updatedEntry).Wait();
+
+            if (json)
+            {
+                WriteJson(updatedEntry);
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - System updated in local store:[/] {id}");
+            AnsiConsole.MarkupLine($"  [bold]EAI:[/] {eai}");
+            AnsiConsole.MarkupLine($"  [bold]Name:[/] {name}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to update in local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+systemCmd.Subcommands.Add(systemUpdateCmd);
+
+var systemCreateCmd = new Command("create", "Create a new system");
+var systemCreateEaiOpt = new Option<string>("--eai") { Required = true };
+var systemCreateNameOpt = new Option<string>("--name") { Required = true };
+var systemCreateOwnerIdOpt = new Option<Guid>("--owner-id");
+var systemCreateOwnerEmailOpt = new Option<string>("--owner-email");
+var systemCreateJsonOpt = NewJsonOption();
+systemCreateCmd.Options.Add(systemCreateEaiOpt);
+systemCreateCmd.Options.Add(systemCreateNameOpt);
+systemCreateCmd.Options.Add(systemCreateOwnerIdOpt);
+systemCreateCmd.Options.Add(systemCreateOwnerEmailOpt);
+systemCreateCmd.Options.Add(systemCreateJsonOpt);
+
+systemCreateCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var references = scope.ServiceProvider.GetRequiredService<IReferenceDataService>();
+    var json = result.GetValue(systemCreateJsonOpt);
+
+    var eai = result.GetValue(systemCreateEaiOpt)!;
+    var name = result.GetValue(systemCreateNameOpt)!;
+    var ownerUserId = ResolveUserId(result.GetValue(systemCreateOwnerIdOpt), result.GetValue(systemCreateOwnerEmailOpt), references, json);
+    if (ownerUserId is null)
+        return;
+
+    try
+    {
+        var entry = mediator.Send(new CreateSystemCommand(eai, name, ownerUserId.Value)).Result;
+
+        if (json)
+        {
+            WriteJson(new { entry.SystemId, entry.EAI, entry.Name, entry.OwnerUserId });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]System created:[/] {entry.SystemId}");
+        AnsiConsole.MarkupLine($"  [bold]EAI:[/] {entry.EAI}");
+        AnsiConsole.MarkupLine($"  [bold]Name:[/] {entry.Name}");
+        AnsiConsole.MarkupLine($"  [bold]Owner:[/] {entry.OwnerUserId}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        var jsonEntry = new JsonSystemEntry
+        {
+            SystemId = 0,
+            EAI = eai,
+            Name = name,
+            OwnerUserId = ownerUserId.Value
+        };
+
+        try
+        {
+            store.AppendAsync("systems", jsonEntry).Wait();
+
+            if (json)
+            {
+                WriteJson(jsonEntry);
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - System saved to local store:[/] {eai}");
+            AnsiConsole.MarkupLine($"  [bold]Name:[/] {name}");
+            AnsiConsole.MarkupLine($"  [bold]Owner:[/] {ownerUserId}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to save to local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+systemCmd.Subcommands.Add(systemCreateCmd);
+
+var systemDeleteCmd = new Command("delete", "Delete a system");
+var systemDeleteIdArg = new Argument<long>("id");
+var systemDeleteJsonOpt = NewJsonOption();
+systemDeleteCmd.Arguments.Add(systemDeleteIdArg);
+systemDeleteCmd.Options.Add(systemDeleteJsonOpt);
+
+systemDeleteCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(systemDeleteJsonOpt);
+
+    var id = result.GetValue(systemDeleteIdArg);
+
+    try
+    {
+        var ok = mediator.Send(new DeleteSystemCommand(id)).Result;
+        if (!ok)
+        {
+            WriteError("System not found.", json);
+            return;
+        }
+
+        if (json)
+        {
+            WriteJson(new { deleted = true, id });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]System deleted:[/] {id}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        try
+        {
+            var ok = store.DeleteAsync<JsonSystemEntry>("systems", e => e.SystemId == id).Result;
+            if (!ok)
+            {
+                WriteError("System not found.", json);
+                return;
+            }
+
+            if (json)
+            {
+                WriteJson(new { deleted = true, id });
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - System deleted from local store:[/] {id}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to delete in local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+systemCmd.Subcommands.Add(systemDeleteCmd);
 rootCommand.Subcommands.Add(systemCmd);
 
 var knowledgeTypeCmd = new Command("knowledge-type", "Manage knowledge types");
@@ -1511,6 +2057,233 @@ knowledgeTypeListCmd.SetAction((ParseResult result) =>
     }
 });
 knowledgeTypeCmd.Subcommands.Add(knowledgeTypeListCmd);
+
+var knowledgeTypeUpdateCmd = new Command("update", "Update a knowledge type");
+var knowledgeTypeUpdateIdArg = new Argument<long>("id");
+var knowledgeTypeUpdateCodeOpt = new Option<string>("--code") { Required = true };
+var knowledgeTypeUpdateNameOpt = new Option<string>("--name") { Required = true };
+var knowledgeTypeUpdateJsonOpt = NewJsonOption();
+knowledgeTypeUpdateCmd.Arguments.Add(knowledgeTypeUpdateIdArg);
+knowledgeTypeUpdateCmd.Options.Add(knowledgeTypeUpdateCodeOpt);
+knowledgeTypeUpdateCmd.Options.Add(knowledgeTypeUpdateNameOpt);
+knowledgeTypeUpdateCmd.Options.Add(knowledgeTypeUpdateJsonOpt);
+
+knowledgeTypeUpdateCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(knowledgeTypeUpdateJsonOpt);
+
+    var id = result.GetValue(knowledgeTypeUpdateIdArg);
+    var code = result.GetValue(knowledgeTypeUpdateCodeOpt)!;
+    var name = result.GetValue(knowledgeTypeUpdateNameOpt)!;
+
+    try
+    {
+        var command = new UpdateKnowledgeTypeCommand(id, code, name);
+        var entry = mediator.Send(command).Result;
+
+        if (entry is null)
+        {
+            WriteError("Knowledge type not found.", json);
+            return;
+        }
+
+        if (json)
+        {
+            WriteJson(new
+            {
+                entry.TypeId,
+                entry.Code,
+                entry.Name
+            });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]Knowledge type updated:[/] {entry.TypeId}");
+        AnsiConsole.MarkupLine($"  [bold]Code:[/] {entry.Code}");
+        AnsiConsole.MarkupLine($"  [bold]Name:[/] {entry.Name}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        var existingEntry = store.FindByIdAsync<JsonKnowledgeTypeEntry>("knowledge-types", e => e.TypeId == id).Result;
+        if (existingEntry is null)
+        {
+            WriteError("Knowledge type not found.", json);
+            return;
+        }
+
+        var updatedEntry = new JsonKnowledgeTypeEntry
+        {
+            TypeId = id,
+            Code = code,
+            Name = name
+        };
+
+        try
+        {
+            store.UpdateAsync("knowledge-types", e => e.TypeId == id, updatedEntry).Wait();
+
+            if (json)
+            {
+                WriteJson(updatedEntry);
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - Knowledge type updated in local store:[/] {id}");
+            AnsiConsole.MarkupLine($"  [bold]Code:[/] {code}");
+            AnsiConsole.MarkupLine($"  [bold]Name:[/] {name}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to update in local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+knowledgeTypeCmd.Subcommands.Add(knowledgeTypeUpdateCmd);
+
+var knowledgeTypeCreateCmd = new Command("create", "Create a new knowledge type");
+var knowledgeTypeCreateCodeOpt = new Option<string>("--code") { Required = true };
+var knowledgeTypeCreateNameOpt = new Option<string>("--name") { Required = true };
+var knowledgeTypeCreateJsonOpt = NewJsonOption();
+knowledgeTypeCreateCmd.Options.Add(knowledgeTypeCreateCodeOpt);
+knowledgeTypeCreateCmd.Options.Add(knowledgeTypeCreateNameOpt);
+knowledgeTypeCreateCmd.Options.Add(knowledgeTypeCreateJsonOpt);
+
+knowledgeTypeCreateCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(knowledgeTypeCreateJsonOpt);
+
+    var code = result.GetValue(knowledgeTypeCreateCodeOpt)!;
+    var name = result.GetValue(knowledgeTypeCreateNameOpt)!;
+
+    try
+    {
+        var entry = mediator.Send(new CreateKnowledgeTypeCommand(code, name)).Result;
+
+        if (json)
+        {
+            WriteJson(new { entry.TypeId, entry.Code, entry.Name });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]Knowledge type created:[/] {entry.TypeId}");
+        AnsiConsole.MarkupLine($"  [bold]Code:[/] {entry.Code}");
+        AnsiConsole.MarkupLine($"  [bold]Name:[/] {entry.Name}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        var jsonEntry = new JsonKnowledgeTypeEntry
+        {
+            TypeId = 0,
+            Code = code,
+            Name = name
+        };
+
+        try
+        {
+            store.AppendAsync("knowledge-types", jsonEntry).Wait();
+
+            if (json)
+            {
+                WriteJson(jsonEntry);
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - Knowledge type saved to local store:[/] {code}");
+            AnsiConsole.MarkupLine($"  [bold]Name:[/] {name}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to save to local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+knowledgeTypeCmd.Subcommands.Add(knowledgeTypeCreateCmd);
+
+var knowledgeTypeDeleteCmd = new Command("delete", "Delete a knowledge type");
+var knowledgeTypeDeleteIdArg = new Argument<long>("id");
+var knowledgeTypeDeleteJsonOpt = NewJsonOption();
+knowledgeTypeDeleteCmd.Arguments.Add(knowledgeTypeDeleteIdArg);
+knowledgeTypeDeleteCmd.Options.Add(knowledgeTypeDeleteJsonOpt);
+
+knowledgeTypeDeleteCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(knowledgeTypeDeleteJsonOpt);
+
+    var id = result.GetValue(knowledgeTypeDeleteIdArg);
+
+    try
+    {
+        var ok = mediator.Send(new DeleteKnowledgeTypeCommand(id)).Result;
+        if (!ok)
+        {
+            WriteError("Knowledge type not found.", json);
+            return;
+        }
+
+        if (json)
+        {
+            WriteJson(new { deleted = true, id });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]Knowledge type deleted:[/] {id}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        try
+        {
+            var ok = store.DeleteAsync<JsonKnowledgeTypeEntry>("knowledge-types", e => e.TypeId == id).Result;
+            if (!ok)
+            {
+                WriteError("Knowledge type not found.", json);
+                return;
+            }
+
+            if (json)
+            {
+                WriteJson(new { deleted = true, id });
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - Knowledge type deleted from local store:[/] {id}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to delete in local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+knowledgeTypeCmd.Subcommands.Add(knowledgeTypeDeleteCmd);
 rootCommand.Subcommands.Add(knowledgeTypeCmd);
 
 var knowledgeStateCmd = new Command("knowledge-state", "Manage knowledge states");
@@ -1556,6 +2329,233 @@ knowledgeStateListCmd.SetAction((ParseResult result) =>
     }
 });
 knowledgeStateCmd.Subcommands.Add(knowledgeStateListCmd);
+
+var knowledgeStateUpdateCmd = new Command("update", "Update a knowledge state");
+var knowledgeStateUpdateIdArg = new Argument<int>("id");
+var knowledgeStateUpdateCodeOpt = new Option<string>("--code") { Required = true };
+var knowledgeStateUpdateNameOpt = new Option<string>("--name") { Required = true };
+var knowledgeStateUpdateJsonOpt = NewJsonOption();
+knowledgeStateUpdateCmd.Arguments.Add(knowledgeStateUpdateIdArg);
+knowledgeStateUpdateCmd.Options.Add(knowledgeStateUpdateCodeOpt);
+knowledgeStateUpdateCmd.Options.Add(knowledgeStateUpdateNameOpt);
+knowledgeStateUpdateCmd.Options.Add(knowledgeStateUpdateJsonOpt);
+
+knowledgeStateUpdateCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(knowledgeStateUpdateJsonOpt);
+
+    var id = result.GetValue(knowledgeStateUpdateIdArg);
+    var code = result.GetValue(knowledgeStateUpdateCodeOpt)!;
+    var name = result.GetValue(knowledgeStateUpdateNameOpt)!;
+
+    try
+    {
+        var command = new UpdateKnowledgeStateCommand(id, code, name);
+        var entry = mediator.Send(command).Result;
+
+        if (entry is null)
+        {
+            WriteError("Knowledge state not found.", json);
+            return;
+        }
+
+        if (json)
+        {
+            WriteJson(new
+            {
+                entry.StateId,
+                entry.Code,
+                entry.Name
+            });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]Knowledge state updated:[/] {entry.StateId}");
+        AnsiConsole.MarkupLine($"  [bold]Code:[/] {entry.Code}");
+        AnsiConsole.MarkupLine($"  [bold]Name:[/] {entry.Name}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        var existingEntry = store.FindByIdAsync<JsonKnowledgeStateEntry>("knowledge-states", e => e.StateId == id).Result;
+        if (existingEntry is null)
+        {
+            WriteError("Knowledge state not found.", json);
+            return;
+        }
+
+        var updatedEntry = new JsonKnowledgeStateEntry
+        {
+            StateId = id,
+            Code = code,
+            Name = name
+        };
+
+        try
+        {
+            store.UpdateAsync("knowledge-states", e => e.StateId == id, updatedEntry).Wait();
+
+            if (json)
+            {
+                WriteJson(updatedEntry);
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - Knowledge state updated in local store:[/] {id}");
+            AnsiConsole.MarkupLine($"  [bold]Code:[/] {code}");
+            AnsiConsole.MarkupLine($"  [bold]Name:[/] {name}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to update in local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+knowledgeStateCmd.Subcommands.Add(knowledgeStateUpdateCmd);
+
+var knowledgeStateCreateCmd = new Command("create", "Create a new knowledge state");
+var knowledgeStateCreateCodeOpt = new Option<string>("--code") { Required = true };
+var knowledgeStateCreateNameOpt = new Option<string>("--name") { Required = true };
+var knowledgeStateCreateJsonOpt = NewJsonOption();
+knowledgeStateCreateCmd.Options.Add(knowledgeStateCreateCodeOpt);
+knowledgeStateCreateCmd.Options.Add(knowledgeStateCreateNameOpt);
+knowledgeStateCreateCmd.Options.Add(knowledgeStateCreateJsonOpt);
+
+knowledgeStateCreateCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(knowledgeStateCreateJsonOpt);
+
+    var code = result.GetValue(knowledgeStateCreateCodeOpt)!;
+    var name = result.GetValue(knowledgeStateCreateNameOpt)!;
+
+    try
+    {
+        var entry = mediator.Send(new CreateKnowledgeStateCommand(code, name)).Result;
+
+        if (json)
+        {
+            WriteJson(new { entry.StateId, entry.Code, entry.Name });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]Knowledge state created:[/] {entry.StateId}");
+        AnsiConsole.MarkupLine($"  [bold]Code:[/] {entry.Code}");
+        AnsiConsole.MarkupLine($"  [bold]Name:[/] {entry.Name}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        var jsonEntry = new JsonKnowledgeStateEntry
+        {
+            StateId = 0,
+            Code = code,
+            Name = name
+        };
+
+        try
+        {
+            store.AppendAsync("knowledge-states", jsonEntry).Wait();
+
+            if (json)
+            {
+                WriteJson(jsonEntry);
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - Knowledge state saved to local store:[/] {code}");
+            AnsiConsole.MarkupLine($"  [bold]Name:[/] {name}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to save to local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+knowledgeStateCmd.Subcommands.Add(knowledgeStateCreateCmd);
+
+var knowledgeStateDeleteCmd = new Command("delete", "Delete a knowledge state");
+var knowledgeStateDeleteIdArg = new Argument<int>("id");
+var knowledgeStateDeleteJsonOpt = NewJsonOption();
+knowledgeStateDeleteCmd.Arguments.Add(knowledgeStateDeleteIdArg);
+knowledgeStateDeleteCmd.Options.Add(knowledgeStateDeleteJsonOpt);
+
+knowledgeStateDeleteCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(knowledgeStateDeleteJsonOpt);
+
+    var id = result.GetValue(knowledgeStateDeleteIdArg);
+
+    try
+    {
+        var ok = mediator.Send(new DeleteKnowledgeStateCommand(id)).Result;
+        if (!ok)
+        {
+            WriteError("Knowledge state not found.", json);
+            return;
+        }
+
+        if (json)
+        {
+            WriteJson(new { deleted = true, id });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]Knowledge state deleted:[/] {id}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        try
+        {
+            var ok = store.DeleteAsync<JsonKnowledgeStateEntry>("knowledge-states", e => e.StateId == id).Result;
+            if (!ok)
+            {
+                WriteError("Knowledge state not found.", json);
+                return;
+            }
+
+            if (json)
+            {
+                WriteJson(new { deleted = true, id });
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - Knowledge state deleted from local store:[/] {id}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to delete in local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+knowledgeStateCmd.Subcommands.Add(knowledgeStateDeleteCmd);
 rootCommand.Subcommands.Add(knowledgeStateCmd);
 
 var issueStateCmd = new Command("issue-state", "Manage issue states");
@@ -1601,7 +2601,508 @@ issueStateListCmd.SetAction((ParseResult result) =>
     }
 });
 issueStateCmd.Subcommands.Add(issueStateListCmd);
+
+var issueStateUpdateCmd = new Command("update", "Update an issue state");
+var issueStateUpdateIdArg = new Argument<int>("id");
+var issueStateUpdateCodeOpt = new Option<string>("--code") { Required = true };
+var issueStateUpdateNameOpt = new Option<string>("--name") { Required = true };
+var issueStateUpdateJsonOpt = NewJsonOption();
+issueStateUpdateCmd.Arguments.Add(issueStateUpdateIdArg);
+issueStateUpdateCmd.Options.Add(issueStateUpdateCodeOpt);
+issueStateUpdateCmd.Options.Add(issueStateUpdateNameOpt);
+issueStateUpdateCmd.Options.Add(issueStateUpdateJsonOpt);
+
+issueStateUpdateCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(issueStateUpdateJsonOpt);
+
+    var id = result.GetValue(issueStateUpdateIdArg);
+    var code = result.GetValue(issueStateUpdateCodeOpt)!;
+    var name = result.GetValue(issueStateUpdateNameOpt)!;
+
+    try
+    {
+        var command = new UpdateIssueStateCommand(id, code, name);
+        var entry = mediator.Send(command).Result;
+
+        if (entry is null)
+        {
+            WriteError("Issue state not found.", json);
+            return;
+        }
+
+        if (json)
+        {
+            WriteJson(new
+            {
+                entry.StateId,
+                entry.Code,
+                entry.Name
+            });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]Issue state updated:[/] {entry.StateId}");
+        AnsiConsole.MarkupLine($"  [bold]Code:[/] {entry.Code}");
+        AnsiConsole.MarkupLine($"  [bold]Name:[/] {entry.Name}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        var existingEntry = store.FindByIdAsync<JsonIssueStateEntry>("issue-states", e => e.StateId == id).Result;
+        if (existingEntry is null)
+        {
+            WriteError("Issue state not found.", json);
+            return;
+        }
+
+        var updatedEntry = new JsonIssueStateEntry
+        {
+            StateId = id,
+            Code = code,
+            Name = name
+        };
+
+        try
+        {
+            store.UpdateAsync("issue-states", e => e.StateId == id, updatedEntry).Wait();
+
+            if (json)
+            {
+                WriteJson(updatedEntry);
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - Issue state updated in local store:[/] {id}");
+            AnsiConsole.MarkupLine($"  [bold]Code:[/] {code}");
+            AnsiConsole.MarkupLine($"  [bold]Name:[/] {name}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to update in local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+issueStateCmd.Subcommands.Add(issueStateUpdateCmd);
+
+var issueStateCreateCmd = new Command("create", "Create a new issue state");
+var issueStateCreateCodeOpt = new Option<string>("--code") { Required = true };
+var issueStateCreateNameOpt = new Option<string>("--name") { Required = true };
+var issueStateCreateJsonOpt = NewJsonOption();
+issueStateCreateCmd.Options.Add(issueStateCreateCodeOpt);
+issueStateCreateCmd.Options.Add(issueStateCreateNameOpt);
+issueStateCreateCmd.Options.Add(issueStateCreateJsonOpt);
+
+issueStateCreateCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(issueStateCreateJsonOpt);
+
+    var code = result.GetValue(issueStateCreateCodeOpt)!;
+    var name = result.GetValue(issueStateCreateNameOpt)!;
+
+    try
+    {
+        var entry = mediator.Send(new CreateIssueStateCommand(code, name)).Result;
+
+        if (json)
+        {
+            WriteJson(new { entry.StateId, entry.Code, entry.Name });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]Issue state created:[/] {entry.StateId}");
+        AnsiConsole.MarkupLine($"  [bold]Code:[/] {entry.Code}");
+        AnsiConsole.MarkupLine($"  [bold]Name:[/] {entry.Name}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        var jsonEntry = new JsonIssueStateEntry
+        {
+            StateId = 0,
+            Code = code,
+            Name = name
+        };
+
+        try
+        {
+            store.AppendAsync("issue-states", jsonEntry).Wait();
+
+            if (json)
+            {
+                WriteJson(jsonEntry);
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - Issue state saved to local store:[/] {code}");
+            AnsiConsole.MarkupLine($"  [bold]Name:[/] {name}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to save to local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+issueStateCmd.Subcommands.Add(issueStateCreateCmd);
+
+var issueStateDeleteCmd = new Command("delete", "Delete an issue state");
+var issueStateDeleteIdArg = new Argument<int>("id");
+var issueStateDeleteJsonOpt = NewJsonOption();
+issueStateDeleteCmd.Arguments.Add(issueStateDeleteIdArg);
+issueStateDeleteCmd.Options.Add(issueStateDeleteJsonOpt);
+
+issueStateDeleteCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(issueStateDeleteJsonOpt);
+
+    var id = result.GetValue(issueStateDeleteIdArg);
+
+    try
+    {
+        var ok = mediator.Send(new DeleteIssueStateCommand(id)).Result;
+        if (!ok)
+        {
+            WriteError("Issue state not found.", json);
+            return;
+        }
+
+        if (json)
+        {
+            WriteJson(new { deleted = true, id });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]Issue state deleted:[/] {id}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        try
+        {
+            var ok = store.DeleteAsync<JsonIssueStateEntry>("issue-states", e => e.StateId == id).Result;
+            if (!ok)
+            {
+                WriteError("Issue state not found.", json);
+                return;
+            }
+
+            if (json)
+            {
+                WriteJson(new { deleted = true, id });
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - Issue state deleted from local store:[/] {id}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to delete in local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+issueStateCmd.Subcommands.Add(issueStateDeleteCmd);
 rootCommand.Subcommands.Add(issueStateCmd);
+
+var knowledgeTagCmd = new Command("knowledge-tag", "Manage knowledge tags");
+
+var knowledgeTagListCmd = new Command("list", "List all knowledge tags");
+var knowledgeTagListJsonOpt = NewJsonOption();
+knowledgeTagListCmd.Options.Add(knowledgeTagListJsonOpt);
+knowledgeTagListCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var tagRepo = scope.ServiceProvider.GetRequiredService<IKnowledgeTagRepository>();
+    var json = result.GetValue(knowledgeTagListJsonOpt);
+
+    try
+    {
+        var tags = tagRepo.GetAllAsync().Result;
+        if (json)
+        {
+            WriteJson(tags);
+            return;
+        }
+
+        var table = new Table();
+        table.AddColumns("Id", "Name");
+        foreach (var tag in tags)
+        {
+            table.AddRow(tag.KnowledgeTagId.ToString(), tag.TagName);
+        }
+
+        AnsiConsole.Write(table);
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available.", json);
+            return;
+        }
+
+        var entries = store.ReadAllAsync<JsonKnowledgeTagEntry>("knowledge-tags").Result;
+        if (json)
+        {
+            WriteJson(entries);
+            return;
+        }
+
+        AnsiConsole.MarkupLine("[yellow]DB unavailable - showing data from local store[/]");
+        var table = new Table();
+        table.AddColumns("Id", "Name");
+        foreach (var entry in entries)
+        {
+            table.AddRow(entry.KnowledgeTagId.ToString(), entry.TagName);
+        }
+
+        AnsiConsole.Write(table);
+    }
+});
+knowledgeTagCmd.Subcommands.Add(knowledgeTagListCmd);
+
+var knowledgeTagUpdateCmd = new Command("update", "Update a knowledge tag");
+var knowledgeTagUpdateIdArg = new Argument<long>("id");
+var knowledgeTagUpdateNameOpt = new Option<string>("--name") { Required = true };
+var knowledgeTagUpdateJsonOpt = NewJsonOption();
+knowledgeTagUpdateCmd.Arguments.Add(knowledgeTagUpdateIdArg);
+knowledgeTagUpdateCmd.Options.Add(knowledgeTagUpdateNameOpt);
+knowledgeTagUpdateCmd.Options.Add(knowledgeTagUpdateJsonOpt);
+
+knowledgeTagUpdateCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(knowledgeTagUpdateJsonOpt);
+
+    var id = result.GetValue(knowledgeTagUpdateIdArg);
+    var tagName = result.GetValue(knowledgeTagUpdateNameOpt)!;
+
+    try
+    {
+        var command = new UpdateKnowledgeTagCommand(id, tagName);
+        var entry = mediator.Send(command).Result;
+
+        if (entry is null)
+        {
+            WriteError("Knowledge tag not found.", json);
+            return;
+        }
+
+        if (json)
+        {
+            WriteJson(new
+            {
+                entry.KnowledgeTagId,
+                entry.TagName
+            });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]Knowledge tag updated:[/] {entry.KnowledgeTagId}");
+        AnsiConsole.MarkupLine($"  [bold]Name:[/] {entry.TagName}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        var existingEntry = store.FindByIdAsync<JsonKnowledgeTagEntry>("knowledge-tags", e => e.KnowledgeTagId == id).Result;
+        if (existingEntry is null)
+        {
+            WriteError("Knowledge tag not found.", json);
+            return;
+        }
+
+        var updatedEntry = new JsonKnowledgeTagEntry
+        {
+            KnowledgeTagId = id,
+            TagName = tagName
+        };
+
+        try
+        {
+            store.UpdateAsync("knowledge-tags", e => e.KnowledgeTagId == id, updatedEntry).Wait();
+
+            if (json)
+            {
+                WriteJson(updatedEntry);
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - Knowledge tag updated in local store:[/] {id}");
+            AnsiConsole.MarkupLine($"  [bold]Name:[/] {tagName}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to update in local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+knowledgeTagCmd.Subcommands.Add(knowledgeTagUpdateCmd);
+
+var knowledgeTagCreateCmd = new Command("create", "Create a new knowledge tag");
+var knowledgeTagCreateNameOpt = new Option<string>("--name") { Required = true };
+var knowledgeTagCreateJsonOpt = NewJsonOption();
+knowledgeTagCreateCmd.Options.Add(knowledgeTagCreateNameOpt);
+knowledgeTagCreateCmd.Options.Add(knowledgeTagCreateJsonOpt);
+
+knowledgeTagCreateCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(knowledgeTagCreateJsonOpt);
+
+    var name = result.GetValue(knowledgeTagCreateNameOpt)!;
+
+    try
+    {
+        var entry = mediator.Send(new CreateKnowledgeTagCommand(name)).Result;
+
+        if (json)
+        {
+            WriteJson(new { entry.KnowledgeTagId, entry.TagName });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]Knowledge tag created:[/] {entry.KnowledgeTagId}");
+        AnsiConsole.MarkupLine($"  [bold]Tag:[/] {entry.TagName}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be created.", json);
+            return;
+        }
+
+        var jsonEntry = new JsonKnowledgeTagEntry
+        {
+            KnowledgeTagId = 0,
+            TagName = name
+        };
+
+        try
+        {
+            store.AppendAsync("knowledge-tags", jsonEntry).Wait();
+
+            if (json)
+            {
+                WriteJson(jsonEntry);
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - Knowledge tag saved to local store:[/] {name}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to save to local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+knowledgeTagCmd.Subcommands.Add(knowledgeTagCreateCmd);
+
+var knowledgeTagDeleteCmd = new Command("delete", "Delete a knowledge tag");
+var knowledgeTagDeleteIdArg = new Argument<long>("id");
+var knowledgeTagDeleteJsonOpt = NewJsonOption();
+knowledgeTagDeleteCmd.Arguments.Add(knowledgeTagDeleteIdArg);
+knowledgeTagDeleteCmd.Options.Add(knowledgeTagDeleteJsonOpt);
+
+knowledgeTagDeleteCmd.SetAction((ParseResult result) =>
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var json = result.GetValue(knowledgeTagDeleteJsonOpt);
+
+    var id = result.GetValue(knowledgeTagDeleteIdArg);
+
+    try
+    {
+        var ok = mediator.Send(new DeleteKnowledgeTagCommand(id)).Result;
+        if (!ok)
+        {
+            WriteError("Knowledge tag not found.", json);
+            return;
+        }
+
+        if (json)
+        {
+            WriteJson(new { deleted = true, id });
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[green]Knowledge tag deleted:[/] {id}");
+    }
+    catch
+    {
+        var store = CreateJsonStore();
+        if (store is null)
+        {
+            WriteError("Database is not available and JSON store could not be obtained.", json);
+            return;
+        }
+
+        try
+        {
+            var ok = store.DeleteAsync<JsonKnowledgeTagEntry>("knowledge-tags", e => e.KnowledgeTagId == id).Result;
+            if (!ok)
+            {
+                WriteError("Knowledge tag not found.", json);
+                return;
+            }
+
+            if (json)
+            {
+                WriteJson(new { deleted = true, id });
+                return;
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]DB unavailable - Knowledge tag deleted from local store:[/] {id}");
+        }
+        catch (Exception storeEx)
+        {
+            WriteError($"Failed to delete in local store: {storeEx.Message}", json);
+        }
+    }
+});
+
+knowledgeTagCmd.Subcommands.Add(knowledgeTagDeleteCmd);
+rootCommand.Subcommands.Add(knowledgeTagCmd);
 
 var startupCmd = new Command("startup", "Initialize reference data (Users, Systems, KnowledgeTypes, IssueStates, KnowledgeStates)");
 var startupDemoOpt = new Option<bool>("--demo")

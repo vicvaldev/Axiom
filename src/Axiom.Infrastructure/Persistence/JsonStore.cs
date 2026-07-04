@@ -104,6 +104,29 @@ public class JsonStore : IJsonStore
         }
     }
 
+    public async Task<bool> DeleteAsync<T>(string entityName, Func<T, bool> predicate, CancellationToken ct = default)
+    {
+        var semaphore = _locks.GetOrAdd(entityName, _ => new SemaphoreSlim(1, 1));
+        await semaphore.WaitAsync(ct);
+        try
+        {
+            var entries = await ReadAllAsync<T>(entityName, ct);
+            var index = entries.FindIndex(e => predicate(e));
+            if (index < 0)
+                return false;
+
+            entries.RemoveAt(index);
+            var filePath = GetFilePath(entityName);
+            var json = JsonSerializer.Serialize(entries, JsonOptions);
+            await File.WriteAllTextAsync(filePath, json, ct);
+            return true;
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
+
     private string GetFilePath(string entityName)
     {
         return Path.Combine(_basePath, $"{entityName.ToLowerInvariant()}.json");

@@ -24,4 +24,16 @@ public class AxiomSystem
         Name = name;
         OwnerUserId = ownerUserId;
     }
+
+    public void Update(string eai, string name, Guid ownerUserId)
+    {
+        if (string.IsNullOrWhiteSpace(eai))
+            throw new ArgumentException("EAI cannot be empty.", nameof(eai));
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be empty.", nameof(name));
+
+        EAI = eai;
+        Name = name;
+        OwnerUserId = ownerUserId;
+    }
 }

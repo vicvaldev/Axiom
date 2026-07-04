@@ -8,4 +8,5 @@ public interface IJsonStore
     Task<T?> FindByIdAsync<T>(string entityName, Func<T, bool> predicate, CancellationToken ct = default);
     Task<bool> ExistsAsync(string entityName, CancellationToken ct = default);
     Task<bool> UpdateAsync<T>(string entityName, Func<T, bool> predicate, T updatedEntry, CancellationToken ct = default);
+    Task<bool> DeleteAsync<T>(string entityName, Func<T, bool> predicate, CancellationToken ct = default);
 }

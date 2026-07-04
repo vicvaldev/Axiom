@@ -11,8 +11,8 @@
 
 | Capa | Proyecto | Dependencias | Propósito |
 |---|---|---|---|
-| **Domain** | `Axiom.Domain` | Ninguna | Entidades (9), Value Objects, Excepciones |
-| **Application** | `Axiom.Application` | Domain | Casos de uso CQRS (24 commands, 5 queries, 29 handlers), validación FluentValidation, interfaces de repositorio, DTOs de proyección |
+| **Domain** | `Axiom.Domain` | Ninguna | Entidades (13), Value Objects, Excepciones, Enums (6) |
+| **Application** | `Axiom.Application` | Domain | Casos de uso CQRS (28 commands, 9 queries, 37 handlers), validación FluentValidation, interfaces de repositorio, DTOs de proyección |
 | **Infrastructure** | `Axiom.Infrastructure` | Application + Domain | Persistencia EF Core + SQL Server, migraciones, configuraciones por entidad, repositorios, startup service |
 | **Entrypoint** | `Axiom.Tool` | Application + Infrastructure | CLI con System.CommandLine + Spectre.Console + MediatR |
 
@@ -154,6 +154,8 @@ dotnet tool uninstall --global Axiom.Tool
 | `knowledge-state` | `create`, `update`, `delete`, `list` | Gestión de estados de conocimiento |
 | `issue-state` | `create`, `update`, `delete`, `list` | Gestión de estados de issue |
 | `knowledge-tag` | `create`, `update`, `delete`, `list` | Gestión de tags de conocimiento |
+| `component` | `add`, `list`, `show` | Gestión de componentes técnicos |
+| `dependency` | `add`, `list`, `impact`, `trace` | Gestión de dependencias y trazabilidad |
 
 Todos los comandos soportan `--json` para salida machine-readable.
 
@@ -895,9 +897,128 @@ Knowledge tag deleted: <id>
 Si no existe: `Knowledge tag not found.`
 Si la BD no está disponible, elimina del almacén JSON local.
 
+### `component add`
+
+Crea un nuevo componente técnico asociado a un sistema.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--name` | Sí | `string` | Nombre del componente |
+| `--technical-name` | Sí | `string` | Nombre técnico |
+| `--type` | Sí | `string` | Tipo: `Database`, `Schema`, `Table`, `View`, `StoredProcedure`, `Api`, `ApiEndpoint`, `ETL`, `SchedulerJob`, `AdobeFlow`, `Queue`, `File`, `Service`, `ExternalSystem`, `Unknown` |
+| `--environment` | Sí | `string` | Entorno: `DEV`, `QA`, `UAT`, `PROD`, `Unknown` |
+| `--criticality` | Sí | `string` | Criticidad: `Low`, `Medium`, `High`, `Critical`, `Unknown` |
+| `--system-id` | Sí | `long` | ID del sistema propietario |
+| `--description` | No | `string` | Descripción del componente |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Component created: <guid>
+  Name: <name>
+  Technical Name: <technicalName>
+  Type: <type>
+  System ID: <id>
+```
+
+### `component list`
+
+Lista componentes técnicos de un sistema.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--system-id` | Sí | `long` | ID del sistema |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+```powershell
+axiom component add --name "Customer DB" --technical-name crm_db --type Database --environment PROD --criticality High --system-id 1
+axiom component list --system-id 1
+axiom component show <guid>
+```
+
+### `component show <guid>`
+
+Muestra detalle completo de un componente técnico por GUID.
+
+Panel con: Name, Technical Name, Type, Environment, Criticality, Description, System, Created, Updated.
+
+Si no existe: `Component not found.`
+
+### `dependency add`
+
+Crea una dependencia dirigida entre dos componentes técnicos.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--source` | Sí | `guid` | ID del componente origen |
+| `--target` | Sí | `guid` | ID del componente destino |
+| `--type` | Sí | `string` | Tipo: `ReadsFrom`, `WritesTo`, `Calls`, `Populates`, `Triggers`, `Consumes`, `Produces`, `Imports`, `Exports`, `Schedules`, `AuthenticatesAgainst`, `SynchronizesWith`, `Unknown` |
+| `--criticality` | Sí | `string` | Criticidad de la dependencia |
+| `--status` | Sí | `string` | Estado: `Active`, `Deprecated`, `Disabled`, `Unknown` |
+| `--description` | No | `string` | Descripción |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Dependency created: <guid>
+  Source: <sourceId>
+  Target: <targetId>
+  Type: <type>
+  Status: <status>
+```
+
+### `dependency list`
+
+Lista dependencias salientes de un componente.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--component` | Sí | `guid` | ID del componente |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+### `dependency impact`
+
+Lista dependencias entrantes (impacto) sobre un componente.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--component` | Sí | `guid` | ID del componente |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+### `dependency trace`
+
+Registra un evento de trazabilidad sobre una dependencia.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--dependency` | Sí | `guid` | ID de la dependencia |
+| `--event-type` | Sí | `string` | Tipo: `Created`, `Updated`, `Validated`, `Failed`, `Deprecated`, `IssueLinked`, `KnowledgeLinked`, `RitmLinked`, `ChangeLinked`, `NoteAdded`, `Unknown` |
+| `--description` | Sí | `string` | Descripción del evento |
+| `--issue-id` | No | `guid` | Issue relacionado |
+| `--knowledge-id` | No | `guid` | Knowledge relacionado |
+| `--ritm-number` | No | `string` | Número RITM |
+| `--change-number` | No | `string` | Número de cambio |
+| `--created-by` | No | `guid` | ID del usuario que registra |
+| `--json` | No | `bool` | Devuelve salida machine-readable |
+
+**Output:**
+```
+Trace event registered: <guid>
+  Event Type: <type>
+  Description: <description>
+  Dependency: <depId>
+```
+
+```powershell
+axiom dependency add --source <guid> --target <guid> --type Calls --criticality High --status Active
+axiom dependency list --component <guid>
+axiom dependency impact --component <guid>
+axiom dependency trace --dependency <guid> --event-type Validated --description "Validado en PROD"
+```
+
 ---
 
-## 4. Modelo de Datos (9 entidades)
+## 4. Modelo de Datos (13 entidades)
 
 ### Entidades del dominio
 
@@ -912,22 +1033,27 @@ Si la BD no está disponible, elimina del almacén JSON local.
 | `Knowledge` | `KnowledgeId` (Guid) | `SystemId`, `CreatedByUserId`, `KnowledgeTypeId`, `KnowledgeStateId`, `IssueId` (nullable) | `Title`, `Summary`, `Content`, `VersionNumber` |
 | `Issue` | `IssueId` (Guid) | `SystemId`, `StateId`, `CreatedByUserId` | `Summary`, `Problem`, `Analysis`, `Resolution`, `RitmNumber`/`IncidentNumber` (únicos nullables), `ResolvedAt` |
 | `KnowledgeKnowledgeTag` | Compuesta (`KnowledgeId`+`KnowledgeTagId`) | Ambos FK | Join table many-to-many |
+| `TechnicalComponent` | `ComponentId` (Guid) | `SystemId` → Systems | `Name`, `TechnicalName`(único), `ComponentType`, `Environment`, `Criticality`, `Description` |
+| `SystemComponent` | `SystemComponentId` (Guid) | `SystemId` → Systems, `ComponentId` → TechnicalComponent | Join table many-to-many, unique index `(SystemId, ComponentId)` |
+| `ComponentDependency` | `DependencyId` (Guid) | `SourceComponentId`+`TargetComponentId` → TechnicalComponent | `DependencyType`, `Criticality`, `Status`, `Description` |
+| `DependencyTraceEvent` | `TraceEventId` (Guid) | `DependencyId` → ComponentDependency | `EventType`, `Description`, `CreatedAt`. Cascade delete. |
 
-### Relaciones principales
+### Relaciones principales (adicionales)
 
-- `User` → `AxiomSystem` (1:N), `Issue` (1:N), `Knowledge` (1:N)
-- `AxiomSystem` → `Issue` (1:N), `Knowledge` (1:N)
-- `IssueState` → `Issue` (1:N)
-- `KnowledgeState` → `Knowledge` (1:N)
-- `KnowledgeType` → `Knowledge` (1:N)
-- `Issue` → `Knowledge` (1:N, nullable FK)
-- `Knowledge` ↔ `KnowledgeTag` (N:M via `KnowledgeKnowledgeTag`)
+- `AxiomSystem` → `TechnicalComponent` (1:N), `SystemComponent` (1:N)
+- `TechnicalComponent` → `SystemComponent` (1:N), `ComponentDependency` (source 1:N, target 1:N)
+- `ComponentDependency` → `DependencyTraceEvent` (1:N, cascade)
 
-### Soft-delete
+### Enums
 
-Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). Las queries aplican `HasQueryFilter(x => x.DeletedAt == null)` en el DbContext.
-
----
+| Enum | Valores |
+|---|---|
+| `ComponentType` | `Database`, `Schema`, `Table`, `View`, `StoredProcedure`, `Api`, `ApiEndpoint`, `ETL`, `SchedulerJob`, `AdobeFlow`, `Queue`, `File`, `Service`, `ExternalSystem`, `Unknown` |
+| `TargetEnvironment` | `DEV`, `QA`, `UAT`, `PROD`, `Unknown` |
+| `Criticality` | `Low`, `Medium`, `High`, `Critical`, `Unknown` |
+| `DependencyType` | `ReadsFrom`, `WritesTo`, `Calls`, `Populates`, `Triggers`, `Consumes`, `Produces`, `Imports`, `Exports`, `Schedules`, `AuthenticatesAgainst`, `SynchronizesWith`, `Unknown` |
+| `DependencyStatus` | `Active`, `Deprecated`, `Disabled`, `Unknown` |
+| `DependencyTraceEventType` | `Created`, `Updated`, `Validated`, `Failed`, `Deprecated`, `IssueLinked`, `KnowledgeLinked`, `RitmLinked`, `ChangeLinked`, `NoteAdded`, `Unknown` |
 
 ## 5. Capa de Aplicación (CQRS)
 
@@ -959,6 +1085,10 @@ Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). La
 | `CreateKnowledgeTagCommand` | `CreateKnowledgeTagHandler` | `KnowledgeTag` |
 | `UpdateKnowledgeTagCommand` | `UpdateKnowledgeTagHandler` | `KnowledgeTag?` |
 | `DeleteKnowledgeTagCommand` | `DeleteKnowledgeTagHandler` | `bool` |
+| `CreateTechnicalComponentCommand` | `CreateTechnicalComponentHandler` | `TechnicalComponent` |
+| `CreateSystemComponentCommand` | `CreateSystemComponentHandler` | `SystemComponent` |
+| `CreateComponentDependencyCommand` | `CreateComponentDependencyHandler` | `ComponentDependency` |
+| `CreateDependencyTraceEventCommand` | `CreateDependencyTraceEventHandler` | `DependencyTraceEvent` |
 
 ### Queries
 
@@ -969,11 +1099,18 @@ Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). La
 | `SearchKnowledgeQuery` | `SearchKnowledgeHandler` | `IEnumerable<KnowledgeDto>` |
 | `ListIssuesQuery` | `ListIssuesHandler` | `IEnumerable<IssueDto>` |
 | `GetIssueByIdQuery` | `GetIssueByIdHandler` | `Issue?` |
+| `ListComponentsBySystemQuery` | `ListComponentsBySystemHandler` | `IEnumerable<TechnicalComponentDto>` |
+| `GetComponentByIdQuery` | `GetComponentByIdHandler` | `TechnicalComponentDto?` |
+| `ListDependenciesByComponentQuery` | `ListDependenciesByComponentHandler` | `IEnumerable<ComponentDependencyDto>` |
+| `ListImpactedComponentsQuery` | `ListImpactedComponentsHandler` | `IEnumerable<ComponentDependencyDto>` |
 
 ### DTOs (proyecciones de solo lectura)
 
 - `KnowledgeDto` — `KnowledgeId`, `Title`, `Summary`, `SystemName`, `Tags`, `TypeName`, `StateName`, `CreatedByName`, `VersionNumber`, `UpdatedAt`
 - `IssueDto` — `IssueId`, `Summary`, `SystemName`, `StateName`, `RitmNumber`, `IncidentNumber`, `CreatedAt`, `ResolvedAt`
+- `TechnicalComponentDto` — `ComponentId`, `Name`, `TechnicalName`, `ComponentType`, `Environment`, `Criticality`, `Description`, `SystemName`, `CreatedAt`, `UpdatedAt`
+- `ComponentDependencyDto` — `DependencyId`, `SourceComponentId`, `TargetComponentId`, `SourceTechnicalName`, `TargetTechnicalName`, `DependencyType`, `Criticality`, `Status`, `Description`
+- `DependencyTraceEventDto` — `TraceEventId`, `DependencyId`, `EventType`, `Description`, `CreatedAt`
 
 ### Validadores (FluentValidation)
 
@@ -981,6 +1118,10 @@ Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). La
 |---|---|
 | `CreateKnowledgeValidator` | `Title`: NotEmpty, MaxLength(500); `Content`: NotEmpty; `SystemId` > 0; `CreatedByUserId` not empty; `KnowledgeTypeId` > 0; `KnowledgeStateId` > 0 |
 | `CreateIssueValidator` | `Summary`: NotEmpty, MaxLength(200); `Problem`: NotEmpty; `SystemId` > 0; `CreatedByUserId` not empty; `StateId` > 0 |
+| `CreateTechnicalComponentValidator` | `Name`: NotEmpty, MaxLength(200); `TechnicalName`: NotEmpty, MaxLength(100); `SystemId` > 0 |
+| `CreateComponentDependencyValidator` | `SourceComponentId` not empty; `TargetComponentId` not empty; Source ≠ Target |
+| `CreateDependencyTraceEventValidator` | `DependencyId` not empty; `Description`: NotEmpty |
+| `CreateSystemComponentValidator` | `SystemId` > 0; `ComponentId` not empty |
 
 ### Interfaces de repositorio
 
@@ -997,6 +1138,10 @@ Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). La
 | `IKnowledgeTagRepository` | `GetByIdAsync`, `SaveAsync`, `GetAllAsync`, `DeleteAsync` |
 | `IStartupService` | `CreateUserAsync`, `CreateSystemAsync`, `CreateKnowledgeTypeAsync`, `CreateIssueStateAsync`, `CreateKnowledgeStateAsync`, `SeedDemoDataAsync` |
 | `IReferenceDataService` | Listado y resolución de usuarios, sistemas, tipos y estados por claves naturales |
+| `ITechnicalComponentRepository` | `SaveAsync`, `GetByIdAsync`, `GetBySystemIdAsync`, `GetAllAsync`, `DeleteAsync` |
+| `ISystemComponentRepository` | `SaveAsync` |
+| `IComponentDependencyRepository` | `SaveAsync`, `GetByIdAsync`, `GetByComponentIdAsync`, `GetImpactedByComponentAsync`, `DeleteAsync` |
+| `IDependencyTraceEventRepository` | `AddAsync`, `GetByDependencyIdAsync` |
 
 ---
 
@@ -1004,11 +1149,11 @@ Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). La
 
 ### Persistencia: EF Core + SQL Server
 
-- **DbContext**: `AxiomDbContext` con 9 `DbSet`s y configuraciones vía `IEntityTypeConfiguration<T>`
-- **Configuraciones**: 8 archivos en `Persistence/Configurations/` — una por entidad (PKs, FKs, indexes, tipos, delete behavior)
-- **Repositorios**: `EfKnowledgeRepository`, `EfIssueRepository`, `EfTagRepository`, `EfUserRepository`, `EfSystemRepository`, `EfKnowledgeTypeRepository`, `EfKnowledgeStateRepository`, `EfIssueStateRepository`, `EfKnowledgeTagRepository`, `EfStartupService`
-- **Migraciones**: `src/Axiom.Infrastructure/Migrations/` — `InitialCreate` ya aplicada (EF Core 10.0.9)
-- **FK delete behavior**: `Restrict` para la mayoría, `Cascade` para join table `KnowledgeKnowledgeTags`, `SetNull` para Knowledge → Issue
+- **DbContext**: `AxiomDbContext` con 13 `DbSet`s y configuraciones vía `IEntityTypeConfiguration<T>`
+- **Configuraciones**: 12 archivos en `Persistence/Configurations/` — una por entidad (PKs, FKs, indexes, tipos, delete behavior)
+- **Repositorios**: `EfKnowledgeRepository`, `EfIssueRepository`, `EfTagRepository`, `EfUserRepository`, `EfSystemRepository`, `EfKnowledgeTypeRepository`, `EfKnowledgeStateRepository`, `EfIssueStateRepository`, `EfKnowledgeTagRepository`, `EfTechnicalComponentRepository`, `EfSystemComponentRepository`, `EfComponentDependencyRepository`, `EfDependencyTraceEventRepository`, `EfStartupService`
+- **Migraciones**: `src/Axiom.Infrastructure/Persistence/Migrations/` — `InitialCreate` + `AddTechnicalComponent` + `AddSystemComponent` + `AddComponentDependency` + `AddDependencyTraceEvent`
+- **FK delete behavior**: `Restrict` para la mayoría, `Cascade` para join tables y `DependencyTraceEvent` → `ComponentDependency`, `SetNull` para Knowledge → Issue
 
 ### Design-time factory
 
@@ -1019,10 +1164,10 @@ Las entidades `Knowledge` e `Issue` tienen propiedad `DeletedAt` (DateTime?). La
 ## 7. Tests
 
 | Proyecto | Tests |
-|---|---|
-| `Axiom.Domain.Tests` | 10 tests (entidades Knowledge e Issue) |
-| `Axiom.Application.Tests` | 3 tests (handlers con NSubstitute) |
-| `Axiom.Integration.Tests` | 15 tests (EF Core InMemory — startup service, reference data service, repositorios Knowledge e Issue) |
+|---|---|---|
+| `Axiom.Domain.Tests` | 36 tests (Knowledge, Issue, TechnicalComponent, SystemComponent, ComponentDependency, DependencyTraceEvent) |
+| `Axiom.Application.Tests` | 10 tests (handlers con NSubstitute) |
+| `Axiom.Integration.Tests` | 28 tests (EF Core InMemory — startup service, reference data service, repositorios Knowledge, Issue, TechnicalComponent, ComponentDependency, DependencyTraceEvent) |
 
 ```bash
 dotnet test                              # Todos los tests

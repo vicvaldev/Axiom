@@ -63,6 +63,26 @@ public class AxiomDbContext : DbContext
     public DbSet<KnowledgeKnowledgeTag> KnowledgeKnowledgeTags => Set<KnowledgeKnowledgeTag>();
 
     /// <summary>
+    /// Conjunto de entidades de componentes técnicos asociados a sistemas.
+    /// </summary>
+    public DbSet<TechnicalComponent> TechnicalComponents => Set<TechnicalComponent>();
+
+    /// <summary>
+    /// Conjunto de entidades de asociaciones muchos-a-muchos entre sistemas y componentes técnicos.
+    /// </summary>
+    public DbSet<SystemComponent> SystemComponents => Set<SystemComponent>();
+
+    /// <summary>
+    /// Conjunto de entidades de dependencias dirigidas entre componentes técnicos.
+    /// </summary>
+    public DbSet<ComponentDependency> ComponentDependencies => Set<ComponentDependency>();
+
+    /// <summary>
+    /// Conjunto de entidades de eventos de trazabilidad de dependencias.
+    /// </summary>
+    public DbSet<DependencyTraceEvent> DependencyTraceEvents => Set<DependencyTraceEvent>();
+
+    /// <summary>
     /// Inicializa una nueva instancia del <see cref="AxiomDbContext"/> con las opciones de configuración especificadas.
     /// </summary>
     /// <param name="options">Opciones de configuración del contexto, incluyendo la cadena de conexión y proveedor de base de datos.</param>

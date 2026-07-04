@@ -16,7 +16,7 @@ KnowledgeTags
 KnowledgeTypes
 - TypeId (PK, long)
 - Code (varchar, unique)
-- Name (varchar(200)) -- Docs, BugFix, Architecture, Diagrams, etc...
+- Name (varchar(200))
 
 IssueStates
 - StateId (PK, int)
@@ -43,8 +43,8 @@ Knowledges
 - VersionNumber (int)
 
 KnowledgeKnowledgeTags
-KnowledgeId (FK => Knowledges)
-KnowledgeTagId (FK => KnowledgeTags)
+- KnowledgeId (FK => Knowledges)
+- KnowledgeTagId (FK => KnowledgeTags)
 
 Issues
 - IssueId (PK, GUID)
@@ -60,3 +60,45 @@ Issues
 - CreatedAt (DateTime)
 - UpdatedAt (DateTime)
 - ResolvedAt (DateTime)
+
+TechnicalComponents
+- ComponentId (PK, GUID)
+- Name (varchar(200))
+- TechnicalName (varchar(100), UNIQUE)
+- ComponentType (varchar(50))
+- Environment (varchar(50))
+- Criticality (varchar(50))
+- Description (nvarchar(max))
+- SystemId (FK => Systems)
+- CreatedAt (DateTime)
+- UpdatedAt (DateTime)
+
+SystemComponents
+- SystemComponentId (PK, GUID)
+- SystemId (FK => Systems)
+- ComponentId (FK => TechnicalComponents)
+- UNIQUE (SystemId, ComponentId)
+
+ComponentDependencies
+- DependencyId (PK, GUID)
+- SourceComponentId (FK => TechnicalComponents)
+- TargetComponentId (FK => TechnicalComponents)
+- DependencyType (varchar(50))
+- Criticality (varchar(50))
+- Status (varchar(50))
+- Description (nvarchar(max))
+- CreatedAt (DateTime)
+- UpdatedAt (DateTime)
+- UNIQUE (SourceComponentId, TargetComponentId, DependencyType)
+
+DependencyTraceEvents
+- TraceEventId (PK, GUID)
+- DependencyId (FK => ComponentDependencies, CASCADE)
+- EventType (varchar(50))
+- Description (nvarchar(max))
+- IssueId (GUID, nullable)
+- KnowledgeId (GUID, nullable)
+- RitmNumber (varchar(50), nullable)
+- ChangeNumber (varchar(50), nullable)
+- CreatedByUserId (GUID, nullable)
+- CreatedAt (DateTime)

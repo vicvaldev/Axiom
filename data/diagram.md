@@ -73,13 +73,54 @@ erDiagram
         long KnowledgeTagId FK
     }
 
-    Users ||--o{ Systems : owns
+    TechnicalComponents {
+        guid ComponentId PK
+        string Name
+        string TechnicalName UK
+        string ComponentType
+        string Environment
+        string Criticality
+        string Description
+        long SystemId FK
+    }
 
+    SystemComponents {
+        guid SystemComponentId PK
+        long SystemId FK
+        guid ComponentId FK
+    }
+
+    ComponentDependencies {
+        guid DependencyId PK
+        guid SourceComponentId FK
+        guid TargetComponentId FK
+        string DependencyType
+        string Criticality
+        string Status
+        string Description
+    }
+
+    DependencyTraceEvents {
+        guid TraceEventId PK
+        guid DependencyId FK
+        string EventType
+        string Description
+        guid IssueId
+        guid KnowledgeId
+        string RitmNumber
+        string ChangeNumber
+        guid CreatedByUserId
+        datetime CreatedAt
+    }
+
+    Users ||--o{ Systems : owns
     Users ||--o{ Issues : creates
     Users ||--o{ Knowledges : creates
 
     Systems ||--o{ Issues : contains
     Systems ||--o{ Knowledges : contains
+    Systems ||--o{ TechnicalComponents : hosts
+    Systems ||--o{ SystemComponents : associates
 
     IssueStates ||--o{ Issues : status
 
@@ -90,4 +131,10 @@ erDiagram
 
     Knowledges ||--o{ KnowledgeKnowledgeTags : tagged
     KnowledgeTags ||--o{ KnowledgeKnowledgeTags : tag
+
+    TechnicalComponents ||--o{ SystemComponents : linked
+    TechnicalComponents ||--o{ ComponentDependencies : "source (outgoing)"
+    TechnicalComponents ||--o{ ComponentDependencies : "target (incoming)"
+
+    ComponentDependencies ||--o{ DependencyTraceEvents : traces
 ```

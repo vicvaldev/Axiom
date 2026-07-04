@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Axiom is a KnowledgeOps and Operational Continuity Platform built with Clean Architecture in .NET 10. It provides CLI-driven management of knowledge entries and case records with dual persistence (JSON files / EF Core SQL Server).
+Axiom is a KnowledgeOps and Operational Continuity Platform built with Clean Architecture in .NET 10. It provides CLI-driven management of knowledge entries, case records, technical components, and component dependencies with dual persistence (JSON files / EF Core SQL Server).
 
 ## Axiom.Domain
 
@@ -10,27 +10,21 @@ Axiom is a KnowledgeOps and Operational Continuity Platform built with Clean Arc
 
 | Type | Kind | Summary |
 |------|------|---------|
-| `KnowledgeStatus` | Enum | Lifecycle status of a knowledge entry (Draft, Published, Archived, Deprecated). |
-| `KnowledgeType` | Enum | Categorization of knowledge content (Documentation, Runbook, Troubleshooting, Reference, Tutorial, Other). |
-| `CaseStatus` | Enum | State of a case record (Open, InProgress, Resolved, Closed). |
-
-### Namespace: `Axiom.Domain.ValueObjects`
-
-| Type | Kind | Summary |
-|------|------|---------|
-| `RitmId` | readonly record struct | RITM (Request Item) identifier value object with custom JSON converter. |
-| `RitmIdJsonConverter` | Class | JSON converter for RitmId; falls back to "unknown" on null/empty. |
-| `SystemName` | readonly record struct | System or application name value object with custom JSON converter. |
-| `SystemNameJsonConverter` | Class | JSON converter for SystemName; falls back to "unknown" on null/empty. |
-| `KnowledgeStatusValue` | readonly record struct | Wraps the KnowledgeStatus enum as a value object with JSON converter. |
-| `KnowledgeStatusValueJsonConverter` | Class | JSON converter for KnowledgeStatusValue; falls back to Draft on parse failure. |
+| `ComponentType` | Enum | Database, Schema, Table, View, StoredProcedure, Api, ApiEndpoint, ETL, SchedulerJob, AdobeFlow, Queue, File, Service, ExternalSystem, Unknown |
+| `TargetEnvironment` | Enum | DEV, QA, UAT, PROD, Unknown |
+| `Criticality` | Enum | Low, Medium, High, Critical, Unknown |
+| `DependencyType` | Enum | ReadsFrom, WritesTo, Calls, Populates, Triggers, Consumes, Produces, Imports, Exports, Schedules, AuthenticatesAgainst, SynchronizesWith, Unknown |
+| `DependencyStatus` | Enum | Active, Deprecated, Disabled, Unknown |
+| `DependencyTraceEventType` | Enum | Created, Updated, Validated, Failed, Deprecated, IssueLinked, KnowledgeLinked, RitmLinked, ChangeLinked, NoteAdded, Unknown |
 
 ### Namespace: `Axiom.Domain.Entities`
 
 | Type | Kind | Summary |
 |------|------|---------|
-| `KnowledgeEntry` | Class | Knowledge entry entity with Title, Content, System, Tags, Author, Type, Status. |
-| `CaseRecord` | Class | Case record entity with Problem, Analysis, Resolution, RitmId, ChangeId, Status. |
+| `TechnicalComponent` | Class | Componente técnico con Name, TechnicalName (único), ComponentType, Environment, Criticality, Description. FK → System. |
+| `SystemComponent` | Class | Join table many-to-many entre System y TechnicalComponent. Unique index (SystemId, ComponentId). |
+| `ComponentDependency` | Class | Dependencia dirigida entre componentes. SourceComponent → TargetComponent con DependencyType, Criticality, Status. |
+| `DependencyTraceEvent` | Class | Evento de trazabilidad inmutable. FK → ComponentDependency con cascade delete. |
 
 ### Namespace: `Axiom.Domain.Exceptions`
 
@@ -44,42 +38,50 @@ Axiom is a KnowledgeOps and Operational Continuity Platform built with Clean Arc
 
 | Type | Kind | Summary |
 |------|------|---------|
-| `IKnowledgeRepository` | Interface | Contract for persisting/retrieving KnowledgeEntry records (Save, GetById, Search, GetAll, Delete). |
-| `ICaseRepository` | Interface | Contract for persisting/retrieving CaseRecord entities (Save, GetById, GetAll). |
+| `ITechnicalComponentRepository` | Interface | SaveAsync, GetByIdAsync, GetBySystemIdAsync, GetAllAsync, DeleteAsync |
+| `IComponentDependencyRepository` | Interface | SaveAsync, GetByIdAsync, GetByComponentIdAsync, GetImpactedByComponentAsync, DeleteAsync |
+| `IDependencyTraceEventRepository` | Interface | AddAsync, GetByDependencyIdAsync |
+| `ISystemComponentRepository` | Interface | SaveAsync |
 
 ### Namespace: `Axiom.Application.Commands`
 
 | Type | Kind | Summary |
 |------|------|---------|
-| `CreateKnowledgeCommand` | Record | Command to create a new knowledge entry (MediatR `IRequest<KnowledgeEntry>`). |
-| `CreateCaseCommand` | Record | Command to create a new case record (MediatR `IRequest<CaseRecord>`). |
+| `CreateTechnicalComponentCommand` | Record | Creates a new TechnicalComponent (MediatR IRequest\<TechnicalComponent\>) |
+| `CreateSystemComponentCommand` | Record | Creates a new SystemComponent join entry |
+| `CreateComponentDependencyCommand` | Record | Creates a new ComponentDependency |
+| `CreateDependencyTraceEventCommand` | Record | Creates a new DependencyTraceEvent |
 
 ### Namespace: `Axiom.Application.Queries`
 
 | Type | Kind | Summary |
 |------|------|---------|
-| `ListKnowledgeQuery` | Record | Query to retrieve all knowledge entries. |
-| `GetKnowledgeByIdQuery` | Record | Query to retrieve a knowledge entry by ID. |
-| `SearchKnowledgeQuery` | Record | Query to search knowledge entries by free-text. |
-| `GetCaseByIdQuery` | Record | Query to retrieve a case record by ID. |
+| `ListComponentsBySystemQuery` | Record | Returns all TechnicalComponents for a given SystemId |
+| `GetComponentByIdQuery` | Record | Returns a single TechnicalComponentDto by ComponentId |
+| `ListDependenciesByComponentQuery` | Record | Returns all outgoing dependencies of a component |
+| `ListImpactedComponentsQuery` | Record | Returns all incoming dependencies (impact) on a component |
 
 ### Namespace: `Axiom.Application.Handlers`
 
 | Type | Kind | Summary |
 |------|------|---------|
-| `CreateKnowledgeHandler` | Class | Handles CreateKnowledgeCommand: creates KnowledgeEntry and persists it. |
-| `CreateCaseHandler` | Class | Handles CreateCaseCommand: creates CaseRecord and persists it. |
-| `ListKnowledgeHandler` | Class | Handles ListKnowledgeQuery: retrieves all knowledge entries. |
-| `GetKnowledgeByIdHandler` | Class | Handles GetKnowledgeByIdQuery: retrieves a single entry by ID. |
-| `SearchKnowledgeHandler` | Class | Handles SearchKnowledgeQuery: searches entries by query text. |
-| `GetCaseByIdHandler` | Class | Handles GetCaseByIdQuery: retrieves a single case record by ID. |
+| `CreateTechnicalComponentHandler` | Class | Handles CreateTechnicalComponentCommand |
+| `CreateSystemComponentHandler` | Class | Handles CreateSystemComponentCommand |
+| `CreateComponentDependencyHandler` | Class | Handles CreateComponentDependencyCommand |
+| `CreateDependencyTraceEventHandler` | Class | Handles CreateDependencyTraceEventCommand |
+| `ListComponentsBySystemHandler` | Class | Handles ListComponentsBySystemQuery |
+| `GetComponentByIdHandler` | Class | Handles GetComponentByIdQuery |
+| `ListDependenciesByComponentHandler` | Class | Handles ListDependenciesByComponentQuery |
+| `ListImpactedComponentsHandler` | Class | Handles ListImpactedComponentsQuery |
 
 ### Namespace: `Axiom.Application.Validators`
 
 | Type | Kind | Summary |
 |------|------|---------|
-| `CreateKnowledgeValidator` | Class | FluentValidation rules for CreateKnowledgeCommand. |
-| `CreateCaseValidator` | Class | FluentValidation rules for CreateCaseCommand. |
+| `CreateTechnicalComponentValidator` | Class | Name NotEmpty MaxLength(200), TechnicalName NotEmpty MaxLength(100), SystemId > 0 |
+| `CreateComponentDependencyValidator` | Class | SourceComponentId not empty, TargetComponentId not empty, Source ≠ Target |
+| `CreateDependencyTraceEventValidator` | Class | DependencyId not empty, Description NotEmpty |
+| `CreateSystemComponentValidator` | Class | SystemId > 0, ComponentId not empty |
 
 ### Namespace: `Axiom.Application`
 
@@ -89,19 +91,14 @@ Axiom is a KnowledgeOps and Operational Continuity Platform built with Clean Arc
 
 ## Axiom.Infrastructure
 
-### Namespace: `Axiom.Infrastructure.Data`
+### Namespace: `Axiom.Infrastructure.Persistence`
 
 | Type | Kind | Summary |
 |------|------|---------|
-| `JsonDataOptions` | Class | Configuration options for JSON file paths (KnowledgeFilePath, CasesFilePath). |
-| `JsonKnowledgeRepository` | Class | JSON file-backed implementation of IKnowledgeRepository. |
-| `JsonCaseRepository` | Class | JSON file-backed implementation of ICaseRepository. |
-
-### Namespace: `Axiom.Infrastructure`
-
-| Type | Kind | Summary |
-|------|------|---------|
-| `DependencyInjection` | Static Class | Extension method `AddInfrastructure()` to register JSON repositories. |
+| `EfTechnicalComponentRepository` | Class | EF Core implementation of ITechnicalComponentRepository |
+| `EfSystemComponentRepository` | Class | EF Core implementation of ISystemComponentRepository |
+| `EfComponentDependencyRepository` | Class | EF Core implementation of IComponentDependencyRepository |
+| `EfDependencyTraceEventRepository` | Class | EF Core implementation of IDependencyTraceEventRepository |
 
 ## Axiom.Cli
 
@@ -110,12 +107,13 @@ Axiom is a KnowledgeOps and Operational Continuity Platform built with Clean Arc
 | Section | Summary |
 |---------|---------|
 | Root | Axiom CLI entry point with `--help` support. |
-| `knowledge create` | Creates a new knowledge entry (--title, --description, --content, --system, --tags, --author, --type). |
-| `knowledge list` | Lists all knowledge entries in a table. |
-| `knowledge show <id>` | Shows detailed info for a single knowledge entry. |
-| `knowledge search <query>` | Searches entries by free-text query. |
-| `case create` | Creates a new case record (--system, --problem, --analysis, --resolution, --lessons, --ritm-id, --change-id). |
-| `case show <id>` | Shows detailed info for a single case record. |
+| `component add` | Creates a new technical component (--name, --technical-name, --type, --environment, --criticality, --system-id, --description) |
+| `component list` | Lists components by system (--system-id) |
+| `component show <id>` | Shows detailed info for a component |
+| `dependency add` | Creates a new dependency (--source, --target, --type, --criticality, --status, --description) |
+| `dependency list` | Lists outgoing dependencies (--component) |
+| `dependency impact` | Lists incoming dependencies (--component) |
+| `dependency trace` | Registers a trace event (--dependency, --event-type, --description, optional metadata) |
 
 ## Tests
 
@@ -123,40 +121,33 @@ Axiom is a KnowledgeOps and Operational Continuity Platform built with Clean Arc
 
 | File | Type | Summary |
 |------|------|---------|
-| `Entities/KnowledgeEntryTests.cs` | Test Class | 8 tests covering constructor validation, defaults, and Update method. |
-| `Entities/CaseRecordTests.cs` | Test Class | 3 tests covering construction and status updates. |
+| `TechnicalComponentTests.cs` | Test Class | 9 tests covering constructor validation, defaults, and Update method |
+| `SystemComponentTests.cs` | Test Class | 6 tests covering system-component association |
+| `ComponentDependencyTests.cs` | Test Class | 6 tests covering dependency creation and validation |
+| `DependencyTraceEventTests.cs` | Test Class | 5 tests covering trace event creation and immutability |
 
 ### `Axiom.Application.Tests`
 
 | File | Type | Summary |
 |------|------|---------|
-| `Handlers/CreateKnowledgeHandlerTests.cs` | Test Class | Verifies handler creates and persists a knowledge entry. |
-| `Handlers/CreateCaseHandlerTests.cs` | Test Class | Verifies handler creates and persists a case record. |
-| `Handlers/ListKnowledgeHandlerTests.cs` | Test Class | Verifies handler returns all entries from repository. |
+| `CreateTechnicalComponentHandlerTests.cs` | Test Class | Verifies handler creates and persists a component |
+| `CreateComponentDependencyHandlerTests.cs` | Test Class | Verifies handler creates and persists a dependency |
+| `CreateDependencyTraceEventHandlerTests.cs` | Test Class | Verifies handler creates and persists a trace event |
+| `ListComponentsBySystemHandlerTests.cs` | Test Class | Verifies handler returns components by system |
+| `ListDependenciesByComponentHandlerTests.cs` | Test Class | Verifies handler returns dependencies by component |
+| `ListImpactedComponentsHandlerTests.cs` | Test Class | Verifies handler returns impacted components |
 
 ### `Axiom.Integration.Tests`
 
 | File | Type | Summary |
 |------|------|---------|
-| `JsonRepositoryTests.cs` | Test Class | 4 integration tests for JSON repository round-trip, search, and delete operations. |
-
-## CLI Usage
-
-```bash
-# Knowledge commands
-dotnet run -- knowledge create --system "<guid>" --title "<str>" --content "<str>" [--description] [--tags] [--type]
-dotnet run -- knowledge list
-dotnet run -- knowledge show <guid>
-dotnet run -- knowledge search <query>
-
-# Case commands
-dotnet run -- case create --system "<guid>" --problem "<str>" [--title] [--analysis] [--resolution] [--lessons] [--ritm-id] [--change-id]
-dotnet run -- case show <guid>
-```
+| `EfTechnicalComponentRepositoryTests.cs` | Test Class | 5 e2e tests for CRUD + GetBySystemId + GetAll |
+| `EfComponentDependencyRepositoryTests.cs` | Test Class | 6 e2e tests for CRUD + GetByComponentId + GetImpactedByComponent |
+| `EfDependencyTraceEventRepositoryTests.cs` | Test Class | 3 e2e tests for Add + list ordered + empty result |
 
 ## Build & Test
 
 ```bash
 dotnet build               # Build all projects
-dotnet test                # Run all tests (26 tests)
+dotnet test                # Run all tests (61 tests)
 ```

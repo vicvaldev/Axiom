@@ -71,6 +71,17 @@ Comandos principales:
 - Eliminar issue:
   `axiom issue delete <issueId> --json`
 
+- Componentes técnicos:
+  `axiom component add --name <NAME> --technical-name <TECH_NAME> --type <TYPE> --environment <ENV> --criticality <CRIT> --system-id <ID> [--description] --json`
+  `axiom component list --system-id <ID> --json`
+  `axiom component show <guid> --json`
+
+- Dependencias entre componentes:
+  `axiom dependency add --source <guid> --target <guid> --type <TYPE> --criticality <CRIT> --status <STATUS> [--description] --json`
+  `axiom dependency list --component <guid> --json`
+  `axiom dependency impact --component <guid> --json`
+  `axiom dependency trace --dependency <guid> --event-type <TYPE> --description <TEXT> [--issue-id] [--knowledge-id] [--ritm-number] [--change-number] [--created-by] --json`
+
 - Crear datos maestros:
   `axiom user create --email <EMAIL> --name <NAME> --json`
   `axiom system create --eai <EAI> --name <NAME> --owner-email <EMAIL> --json`

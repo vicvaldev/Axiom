@@ -50,6 +50,56 @@ internal static class Mappers
         };
     }
 
+    public static object ToComponentCreateResult(TechnicalComponent entry)
+    {
+        return new
+        {
+            entry.ComponentId,
+            entry.Name,
+            entry.TechnicalName,
+            ComponentType = entry.ComponentType.ToString(),
+            entry.Description,
+            Environment = entry.Environment.ToString(),
+            Criticality = entry.Criticality.ToString(),
+            entry.SystemId,
+            entry.CreatedAt,
+            entry.UpdatedAt
+        };
+    }
+
+    public static object ToDependencyCreateResult(ComponentDependency entry)
+    {
+        return new
+        {
+            entry.DependencyId,
+            entry.SourceComponentId,
+            entry.TargetComponentId,
+            DependencyType = entry.DependencyType.ToString(),
+            entry.Description,
+            Criticality = entry.Criticality.ToString(),
+            Status = entry.Status.ToString(),
+            entry.CreatedAt,
+            entry.UpdatedAt
+        };
+    }
+
+    public static object ToTraceEventResult(DependencyTraceEvent entry)
+    {
+        return new
+        {
+            entry.TraceEventId,
+            entry.DependencyId,
+            EventType = entry.EventType.ToString(),
+            entry.Description,
+            entry.RelatedIssueId,
+            entry.RelatedKnowledgeId,
+            entry.RelatedRitmNumber,
+            entry.RelatedChangeNumber,
+            entry.CreatedByUserId,
+            entry.CreatedAt
+        };
+    }
+
     public static object ToIssueCreateResult(Issue issue)
     {
         return new

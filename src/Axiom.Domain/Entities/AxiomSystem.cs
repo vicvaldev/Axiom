@@ -60,6 +60,20 @@ public class AxiomSystem
     public ICollection<Knowledge> Knowledges { get; private set; } = new HashSet<Knowledge>();
 
     /// <summary>
+    /// Colección de componentes técnicos (<see cref="TechnicalComponent"/>) asociados a este sistema.
+    /// Se inicializa como un <see cref="HashSet{T}"/> vacío para evitar valores <c>null</c>.
+    /// </summary>
+    /// <value>Colección de componentes técnicos pertenecientes al sistema.</value>
+    public ICollection<TechnicalComponent> TechnicalComponents { get; private set; } = new HashSet<TechnicalComponent>();
+
+    /// <summary>
+    /// Colección de asociaciones (<see cref="SystemComponent"/>) entre este sistema y sus componentes técnicos.
+    /// Se inicializa como un <see cref="HashSet{T}"/> vacío para evitar valores <c>null</c>.
+    /// </summary>
+    /// <value>Colección de asociaciones sistema-componente pertenecientes al sistema.</value>
+    public ICollection<SystemComponent> SystemComponents { get; private set; } = new HashSet<SystemComponent>();
+
+    /// <summary>
     /// Constructor privado sin parámetros requerido por Entity Framework Core para la
     /// deserialización de proxies y la creación de instancias desde la base de datos.
     /// </summary>

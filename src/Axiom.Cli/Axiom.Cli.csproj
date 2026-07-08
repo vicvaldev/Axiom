@@ -23,8 +23,8 @@
     <Nullable>enable</Nullable>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>axiom</ToolCommandName>
-    <PackageId>Axiom.Tool</PackageId>
-    <Version>1.2.0</Version>
+    <PackageId>Axiom.Cli</PackageId>
+    <Version>1.3.0</Version>
     <Authors>Víctor Valdivia</Authors>
     <Description>CLI para gestión de conocimiento operacional.</Description>
     <PackageTags>axiom;knowledgeops;cli;dotnet-tool</PackageTags>

@@ -14,7 +14,7 @@
 | **Domain** | `Axiom.Domain` | Ninguna | Entidades (13), Value Objects, Excepciones, Enums (6) |
 | **Application** | `Axiom.Application` | Domain | Casos de uso CQRS (28 commands, 9 queries, 37 handlers), validación FluentValidation, interfaces de repositorio, DTOs de proyección |
 | **Infrastructure** | `Axiom.Infrastructure` | Application + Domain | Persistencia EF Core + SQL Server, migraciones, configuraciones por entidad, repositorios, startup service |
-| **Entrypoint** | `Axiom.Tool` | Application + Infrastructure | CLI con System.CommandLine + Spectre.Console + MediatR |
+| **Entrypoint** | `Axiom.Cli` | Application + Infrastructure | CLI con System.CommandLine + Spectre.Console + MediatR |
 
 ### Stack principal
 
@@ -49,14 +49,14 @@ Axiom está pensado para usarse como herramienta de consola instalada con
 `dotnet tool`. Desde el repo, empaqueta el CLI e instálalo:
 
 ```bash
-dotnet pack src/Axiom.Tool/Axiom.Tool.csproj -c Release
-dotnet tool install --global Axiom.Tool --add-source artifacts/packages --version 1.2.0
+dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
+dotnet tool install --global Axiom.Cli --add-source artifacts/packages --version 1.3.0
 ```
 
 Para actualizar una instalación existente:
 
 ```bash
-dotnet tool update --global Axiom.Tool --add-source artifacts/packages --version 1.2.0
+dotnet tool update --global Axiom.Cli --add-source artifacts/packages --version 1.3.0
 ```
 
 Una vez instalado globalmente, usa directamente el comando `axiom`:
@@ -73,7 +73,7 @@ axiom issue create --system-eai EAI003 --state-code OPEN --created-by-email ops.
 El repo incluye un manifest de dotnet tools para uso local sin instalación global:
 
 ```bash
-dotnet pack src/Axiom.Tool/Axiom.Tool.csproj -c Release
+dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
 dotnet tool restore --add-source artifacts/packages
 ```
 
@@ -89,9 +89,9 @@ dotnet axiom knowledge list
 Sin necesidad de empaquetar ni instalar:
 
 ```bash
-dotnet run --project src/Axiom.Tool -- startup --demo
-dotnet run --project src/Axiom.Tool -- knowledge list
-dotnet run --project src/Axiom.Tool -- knowledge search "IIS" --json
+dotnet run --project src/Axiom.Cli -- startup --demo
+dotnet run --project src/Axiom.Cli -- knowledge list
+dotnet run --project src/Axiom.Cli -- knowledge search "IIS" --json
 ```
 
 ### Almacén JSON local (offline-first)
@@ -113,17 +113,17 @@ JFrog Artifactory. Configuración en `nuget.config` (raíz del repo):
 #     - <add key="<url>" value="<api-key>" /> en la sección <apikeys>
 
 # 2. Empaquetar
-dotnet pack src/Axiom.Tool/Axiom.Tool.csproj -c Release
+dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
 
 # 3. Publicar en JFrog
-dotnet nuget push artifacts/packages/Axiom.Tool.1.2.0.nupkg \
+dotnet nuget push artifacts/packages/Axiom.Cli.1.3.0.nupkg \
     --source axiom-jfrog \
     --api-key <TU_API_KEY>
 
 # 4. Instalar desde JFrog
-dotnet tool install --global Axiom.Tool \
+dotnet tool install --global Axiom.Cli \
     --add-source https://<server>.jfrog.io/artifactory/api/nuget/v3/<feed> \
-    --version 1.2.0
+    --version 1.3.0
 ```
 
 > **Nota:** Si usas `dotnet nuget push` con API key, puedes omitir la
@@ -133,7 +133,7 @@ dotnet tool install --global Axiom.Tool \
 Para desinstalar la tool global:
 
 ```bash
-dotnet tool uninstall --global Axiom.Tool
+dotnet tool uninstall --global Axiom.Cli
 ```
 
 ---
@@ -1196,20 +1196,20 @@ Tests de integración usan proveedor InMemory de EF Core con datos maestros seed
 ```bash
 # Compilar
 dotnet build                                          # Todos los proyectos
-dotnet build src/Axiom.Tool                            # Solo el CLI
+dotnet build src/Axiom.Cli                            # Solo el CLI
 
 # Empaquetar como dotnet tool
-dotnet pack src/Axiom.Tool/Axiom.Tool.csproj -c Release
-# Output: artifacts/packages/Axiom.Tool.<version>.nupkg
+dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
+# Output: artifacts/packages/Axiom.Cli.<version>.nupkg
 
 # Publicar en JFrog Artifactory
-dotnet nuget push artifacts/packages/Axiom.Tool.1.2.0.nupkg \
+dotnet nuget push artifacts/packages/Axiom.Cli.1.3.0.nupkg \
     --source axiom-jfrog \
     --api-key <TU_API_KEY>
 
 # Instalar/actualizar tool global
-dotnet tool install --global Axiom.Tool --add-source artifacts/packages --version 1.2.0
-dotnet tool update --global Axiom.Tool --add-source artifacts/packages --version 1.2.0
+dotnet tool install --global Axiom.Cli --add-source artifacts/packages --version 1.3.0
+dotnet tool update --global Axiom.Cli --add-source artifacts/packages --version 1.3.0
 
 # Usar
 axiom startup --demo

@@ -28,6 +28,7 @@ rootCommand.Subcommands.Add(ReferenceCommands.Create(host));
 rootCommand.Subcommands.Add(StartupCommands.Create(host));
 rootCommand.Subcommands.Add(ComponentCommands.Create(host));
 rootCommand.Subcommands.Add(DependencyCommands.Create(host));
+rootCommand.Subcommands.Add(SyncCommands.Create(host));
 
 var parseResult = rootCommand.Parse(args);
 var exitCode = await parseResult.InvokeAsync();

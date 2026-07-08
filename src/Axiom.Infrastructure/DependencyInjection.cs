@@ -1,5 +1,6 @@
 using Axiom.Application.Interfaces;
 using Axiom.Infrastructure.Persistence;
+using Axiom.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -40,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<IDependencyTraceEventRepository, EfDependencyTraceEventRepository>();
         services.AddScoped<ISystemComponentRepository, EfSystemComponentRepository>();
         services.AddSingleton<IJsonStore>(new JsonStore());
+        services.AddScoped<ISyncService, EfSyncService>();
 
         return services;
     }

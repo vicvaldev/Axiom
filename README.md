@@ -50,13 +50,13 @@ Axiom está pensado para usarse como herramienta de consola instalada con
 
 ```bash
 dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
-dotnet tool install --global Axiom.Cli --add-source artifacts/packages --version 1.3.0
+dotnet tool install --global Axiom.Cli --version 1.3.0
 ```
 
 Para actualizar una instalación existente:
 
 ```bash
-dotnet tool update --global Axiom.Cli --add-source artifacts/packages --version 1.3.0
+dotnet tool update --global Axiom.Cli --version 1.3.0
 ```
 
 Una vez instalado globalmente, usa directamente el comando `axiom`:
@@ -74,7 +74,7 @@ El repo incluye un manifest de dotnet tools para uso local sin instalación glob
 
 ```bash
 dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
-dotnet tool restore --add-source artifacts/packages
+dotnet tool restore
 ```
 
 Luego ejecuta comandos con `dotnet axiom`:
@@ -120,10 +120,8 @@ dotnet nuget push artifacts/packages/Axiom.Cli.1.3.0.nupkg \
     --source axiom-jfrog \
     --api-key <TU_API_KEY>
 
-# 4. Instalar desde JFrog
-dotnet tool install --global Axiom.Cli \
-    --add-source https://<server>.jfrog.io/artifactory/api/nuget/v3/<feed> \
-    --version 1.3.0
+# 4. Instalar desde JFrog (el source axiom-jfrog ya está configurado en nuget.config)
+dotnet tool install --global Axiom.Cli --version 1.3.0
 ```
 
 > **Nota:** Si usas `dotnet nuget push` con API key, puedes omitir la
@@ -1207,9 +1205,9 @@ dotnet nuget push artifacts/packages/Axiom.Cli.1.3.0.nupkg \
     --source axiom-jfrog \
     --api-key <TU_API_KEY>
 
-# Instalar/actualizar tool global
-dotnet tool install --global Axiom.Cli --add-source artifacts/packages --version 1.3.0
-dotnet tool update --global Axiom.Cli --add-source artifacts/packages --version 1.3.0
+# Instalar/actualizar tool global (el source axiom-local ya está configurado en nuget.config)
+dotnet tool install --global Axiom.Cli --version 1.3.0
+dotnet tool update --global Axiom.Cli --version 1.3.0
 
 # Usar
 axiom startup --demo

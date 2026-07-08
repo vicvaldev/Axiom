@@ -97,7 +97,29 @@ internal static class ComponentCommands
             }
             catch
             {
-                CliOutput.WriteError("Failed to create component. Database may be unavailable.", json);
+                var store = CliOutput.CreateJsonStore();
+                if (store is null)
+                {
+                    CliOutput.WriteError("Database is not available and JSON store could not be created.", json);
+                    return;
+                }
+
+                var entry = new JsonTechnicalComponentEntry
+                {
+                    ComponentId = Guid.NewGuid(),
+                    Name = result.GetValue(nameOpt)!,
+                    TechnicalName = result.GetValue(technicalNameOpt)!,
+                    ComponentType = result.GetValue(componentTypeOpt)!,
+                    Environment = result.GetValue(envOpt)!,
+                    Criticality = result.GetValue(criticalityOpt)!,
+                    Description = result.GetValue(descriptionOpt),
+                    SystemId = result.GetValue(systemIdOpt),
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                store.AppendAsync("components", entry).Wait();
+                CliOutput.WriteError("Database is not available. Data saved locally.", json);
             }
         });
 

@@ -279,3 +279,61 @@ public class JsonKnowledgeTagEntry
     /// </summary>
     public string TagName { get; set; } = string.Empty;
 }
+
+/// <summary>
+/// DTO para la serialización/deserialización JSON de un componente técnico.
+/// </summary>
+public class JsonTechnicalComponentEntry
+{
+    public Guid ComponentId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string TechnicalName { get; set; } = string.Empty;
+    public string ComponentType { get; set; } = string.Empty;
+    public string Environment { get; set; } = string.Empty;
+    public string Criticality { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public long SystemId { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// DTO para la serialización/deserialización JSON de la relación sistema-componente.
+/// </summary>
+public class JsonSystemComponentEntry
+{
+    public Guid SystemComponentId { get; set; }
+    public long SystemId { get; set; }
+    public Guid ComponentId { get; set; }
+}
+
+/// <summary>
+/// DTO para la serialización/deserialización JSON de una dependencia entre componentes.
+/// </summary>
+public class JsonComponentDependencyEntry
+{
+    public Guid DependencyId { get; set; }
+    public Guid SourceComponentId { get; set; }
+    public Guid TargetComponentId { get; set; }
+    public string DependencyType { get; set; } = string.Empty;
+    public string Criticality { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string? Description { get; set; }
+}
+
+/// <summary>
+/// DTO para la serialización/deserialización JSON de un evento de trazabilidad.
+/// </summary>
+public class JsonDependencyTraceEventEntry
+{
+    public Guid TraceEventId { get; set; }
+    public Guid DependencyId { get; set; }
+    public string EventType { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public Guid? IssueId { get; set; }
+    public Guid? KnowledgeId { get; set; }
+    public string? RitmNumber { get; set; }
+    public string? ChangeNumber { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    public DateTime CreatedAt { get; set; }
+}

@@ -30,7 +30,9 @@ internal static class ReferenceCommands
         cmd.Subcommands.Add(CreateListCmd(host, "list", "List knowledge types",
             refs => refs.ListKnowledgeTypesAsync().Result));
         cmd.Subcommands.Add(CreateCreateCmd(host, "create", "Create a new knowledge type",
-            (code, name) => new CreateKnowledgeTypeCommand(code, name)));
+            (code, name) => new CreateKnowledgeTypeCommand(code, name),
+            "knowledge-types",
+            (code, name) => new JsonKnowledgeTypeEntry { Code = code, Name = name }));
         cmd.Subcommands.Add(CreateUpdateCmd(host, "update", "Update a knowledge type",
             (long id, string code, string name) => new UpdateKnowledgeTypeCommand(id, code, name)));
         cmd.Subcommands.Add(CreateDeleteCmd(host, "delete", "Delete a knowledge type",
@@ -44,7 +46,9 @@ internal static class ReferenceCommands
         cmd.Subcommands.Add(CreateListCmd(host, "list", "List knowledge states",
             refs => refs.ListKnowledgeStatesAsync().Result));
         cmd.Subcommands.Add(CreateCreateCmd(host, "create", "Create a new knowledge state",
-            (code, name) => new CreateKnowledgeStateCommand(code, name)));
+            (code, name) => new CreateKnowledgeStateCommand(code, name),
+            "knowledge-states",
+            (code, name) => new JsonKnowledgeStateEntry { Code = code, Name = name }));
         cmd.Subcommands.Add(CreateUpdateCmd(host, "update", "Update a knowledge state",
             (long id, string code, string name) => new UpdateKnowledgeStateCommand((int)id, code, name)));
         cmd.Subcommands.Add(CreateDeleteCmd(host, "delete", "Delete a knowledge state",
@@ -58,7 +62,9 @@ internal static class ReferenceCommands
         cmd.Subcommands.Add(CreateListCmd(host, "list", "List issue states",
             refs => refs.ListIssueStatesAsync().Result));
         cmd.Subcommands.Add(CreateCreateCmd(host, "create", "Create a new issue state",
-            (code, name) => new CreateIssueStateCommand(code, name)));
+            (code, name) => new CreateIssueStateCommand(code, name),
+            "issue-states",
+            (code, name) => new JsonIssueStateEntry { Code = code, Name = name }));
         cmd.Subcommands.Add(CreateUpdateCmd(host, "update", "Update an issue state",
             (long id, string code, string name) => new UpdateIssueStateCommand((int)id, code, name)));
         cmd.Subcommands.Add(CreateDeleteCmd(host, "delete", "Delete an issue state",
@@ -71,7 +77,9 @@ internal static class ReferenceCommands
         var cmd = new Command("knowledge-tag", "Manage knowledge tags");
         cmd.Subcommands.Add(CreateTagListCmd(host, "list", "List all knowledge tags"));
         cmd.Subcommands.Add(CreateCreateCmd(host, "create", "Create a new knowledge tag",
-            (_, name) => new CreateKnowledgeTagCommand(name)));
+            (_, name) => new CreateKnowledgeTagCommand(name),
+            "knowledge-tags",
+            (_, name) => new JsonKnowledgeTagEntry { TagName = name }));
         cmd.Subcommands.Add(CreateUpdateCmd(host, "update", "Update a knowledge tag",
             (long id, string _, string name) => new UpdateKnowledgeTagCommand(id, name)));
         cmd.Subcommands.Add(CreateDeleteCmd(host, "delete", "Delete a knowledge tag",
@@ -162,7 +170,9 @@ internal static class ReferenceCommands
     }
 
     private static Command CreateCreateCmd(IHost host, string name, string desc,
-        Func<string, string, object> createCommand)
+        Func<string, string, object> createCommand,
+        string entityName,
+        Func<string, string, object> createDto)
     {
         var cmd = new Command(name, desc);
         var codeOpt = new Option<string>("--code");
@@ -206,7 +216,9 @@ internal static class ReferenceCommands
                     return;
                 }
 
-                CliOutput.WriteError("Database is not available.", json);
+                var dto = createDto(code, createName);
+                store.AppendAsync(entityName, dto).Wait();
+                CliOutput.WriteError("Database is not available. Data saved locally.", json);
             }
         });
 
@@ -259,13 +271,6 @@ internal static class ReferenceCommands
             }
             catch
             {
-                var store = CliOutput.CreateJsonStore();
-                if (store is null)
-                {
-                    CliOutput.WriteError("Database is not available and JSON store could not be created.", json);
-                    return;
-                }
-
                 CliOutput.WriteError("Database is not available.", json);
             }
         });
@@ -310,13 +315,6 @@ internal static class ReferenceCommands
             }
             catch
             {
-                var store = CliOutput.CreateJsonStore();
-                if (store is null)
-                {
-                    CliOutput.WriteError("Database is not available and JSON store could not be created.", json);
-                    return;
-                }
-
                 CliOutput.WriteError("Database is not available.", json);
             }
         });

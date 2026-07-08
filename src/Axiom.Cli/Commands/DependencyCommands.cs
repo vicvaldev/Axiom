@@ -94,7 +94,26 @@ internal static class DependencyCommands
             }
             catch
             {
-                CliOutput.WriteError("Failed to create dependency. Database may be unavailable.", json);
+                var store = CliOutput.CreateJsonStore();
+                if (store is null)
+                {
+                    CliOutput.WriteError("Database is not available and JSON store could not be created.", json);
+                    return;
+                }
+
+                var entry = new JsonComponentDependencyEntry
+                {
+                    DependencyId = Guid.NewGuid(),
+                    SourceComponentId = result.GetValue(sourceOpt),
+                    TargetComponentId = result.GetValue(targetOpt),
+                    DependencyType = result.GetValue(typeOpt)!,
+                    Criticality = result.GetValue(criticalityOpt)!,
+                    Status = result.GetValue(statusOpt)!,
+                    Description = result.GetValue(descriptionOpt)
+                };
+
+                store.AppendAsync("dependencies", entry).Wait();
+                CliOutput.WriteError("Database is not available. Data saved locally.", json);
             }
         });
 
@@ -260,7 +279,29 @@ internal static class DependencyCommands
             }
             catch
             {
-                CliOutput.WriteError("Failed to register trace event. Database may be unavailable.", json);
+                var store = CliOutput.CreateJsonStore();
+                if (store is null)
+                {
+                    CliOutput.WriteError("Database is not available and JSON store could not be created.", json);
+                    return;
+                }
+
+                var entry = new JsonDependencyTraceEventEntry
+                {
+                    TraceEventId = Guid.NewGuid(),
+                    DependencyId = result.GetValue(depOpt),
+                    EventType = result.GetValue(eventTypeOpt)!,
+                    Description = result.GetValue(descriptionOpt)!,
+                    IssueId = result.GetValue(issueIdOpt),
+                    KnowledgeId = result.GetValue(knowledgeIdOpt),
+                    RitmNumber = result.GetValue(ritmOpt),
+                    ChangeNumber = result.GetValue(changeOpt),
+                    CreatedByUserId = result.GetValue(userIdOpt),
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                store.AppendAsync("trace-events", entry).Wait();
+                CliOutput.WriteError("Database is not available. Data saved locally.", json);
             }
         });
 

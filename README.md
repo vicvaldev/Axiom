@@ -53,12 +53,6 @@ dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
 dotnet tool install --global Axiom.Cli --version 1.3.0
 ```
 
-> El source local `axiom-local` ya está configurado en `nuget.config`. Si
-> prefieres no usar el config y usar `--add-source artifacts/packages`,
-> necesitas eliminar o renombrar temporalmente `nuget.config` porque
-> `packageSourceMapping` impide combinar `--add-source` con fuentes
-> mapeadas.
-
 Para actualizar una instalación existente:
 
 ```bash
@@ -107,32 +101,6 @@ almacén JSON local (`~/.axiom/store/`). Todos los comandos de lectura y
 escritura detectan automáticamente la caída de BD y operan contra este
 almacén, mostrando un aviso `[yellow]DB unavailable[/]`. No requiere
 configuración adicional.
-
-### Publicación en JFrog Artifactory
-
-Axiom puede publicarse como paquete NuGet (dotnet tool) en un feed
-JFrog Artifactory. Configuración en `nuget.config` (raíz del repo):
-
-```bash
-# 1. Editar nuget.config con la URL y API key de tu instancia JFrog
-#     - key="axiom-jfrog" -> value = URL del feed NuGet v3
-#     - <add key="<url>" value="<api-key>" /> en la sección <apikeys>
-
-# 2. Empaquetar
-dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
-
-# 3. Publicar en JFrog
-dotnet nuget push artifacts/packages/Axiom.Cli.1.3.0.nupkg \
-    --source axiom-jfrog \
-    --api-key <TU_API_KEY>
-
-# 4. Instalar desde JFrog (el source axiom-jfrog ya está configurado en nuget.config)
-dotnet tool install --global Axiom.Cli --version 1.3.0
-```
-
-> **Nota:** Si usas `dotnet nuget push` con API key, puedes omitir la
-> sección `<apikeys>` del `nuget.config` y pasar `--api-key` directo.
-> Para CI/CD se recomienda usar variables de entorno o un secret manager.
 
 Para desinstalar la tool global:
 
@@ -1206,12 +1174,7 @@ dotnet build src/Axiom.Cli                            # Solo el CLI
 dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
 # Output: artifacts/packages/Axiom.Cli.<version>.nupkg
 
-# Publicar en JFrog Artifactory
-dotnet nuget push artifacts/packages/Axiom.Cli.1.3.0.nupkg \
-    --source axiom-jfrog \
-    --api-key <TU_API_KEY>
-
-# Instalar/actualizar tool global (el source axiom-local ya está configurado en nuget.config)
+# Instalar/actualizar tool global
 dotnet tool install --global Axiom.Cli --version 1.3.0
 dotnet tool update --global Axiom.Cli --version 1.3.0
 

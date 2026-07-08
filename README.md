@@ -53,6 +53,12 @@ dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
 dotnet tool install --global Axiom.Cli --version 1.3.0
 ```
 
+> El source local `axiom-local` ya está configurado en `nuget.config`. Si
+> prefieres no usar el config y usar `--add-source artifacts/packages`,
+> necesitas eliminar o renombrar temporalmente `nuget.config` porque
+> `packageSourceMapping` impide combinar `--add-source` con fuentes
+> mapeadas.
+
 Para actualizar una instalación existente:
 
 ```bash

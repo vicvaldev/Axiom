@@ -51,13 +51,13 @@ Axiom está pensado para usarse como herramienta de consola instalada con
 
 ```bash
 dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
-dotnet tool install --global Axiom.Cli --version 1.3.0
+dotnet tool install --global Axiom.Cli --version 1.4.0
 ```
 
 Para actualizar una instalación existente:
 
 ```bash
-dotnet tool update --global Axiom.Cli --version 1.3.0
+dotnet tool update --global Axiom.Cli --version 1.4.0
 ```
 
 Una vez instalado globalmente, usa directamente el comando `axiom`:
@@ -1176,8 +1176,8 @@ dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
 # Output: artifacts/packages/Axiom.Cli.<version>.nupkg
 
 # Instalar/actualizar tool global
-dotnet tool install --global Axiom.Cli --version 1.3.0
-dotnet tool update --global Axiom.Cli --version 1.3.0
+dotnet tool install --global Axiom.Cli --version 1.4.0
+dotnet tool update --global Axiom.Cli --version 1.4.0
 
 # Usar
 axiom startup --demo

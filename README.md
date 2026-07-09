@@ -15,6 +15,7 @@
 | **Application** | `Axiom.Application` | Domain | Casos de uso CQRS (28 commands, 9 queries, 37 handlers), validación FluentValidation, interfaces de repositorio, DTOs de proyección |
 | **Infrastructure** | `Axiom.Infrastructure` | Application + Domain | Persistencia EF Core + SQL Server, migraciones, configuraciones por entidad, repositorios, startup service |
 | **Entrypoint** | `Axiom.Cli` | Application + Infrastructure | CLI con System.CommandLine + Spectre.Console + MediatR |
+| **Test** | `Axiom.Integration.Tests` | Infrastructure | Tests de integración con EF Core InMemory (98 tests total) |
 
 ### Stack principal
 

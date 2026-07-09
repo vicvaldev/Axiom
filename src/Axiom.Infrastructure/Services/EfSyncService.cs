@@ -536,7 +536,26 @@ public class EfSyncService : ISyncService
         {
             if (existingIds.Contains(entry.DependencyId))
             {
-                _dependencyIdMap[entry.DependencyId] = entry.DependencyId;
+                var dbDep = existing.First(d => d.DependencyId == entry.DependencyId);
+                var action = ResolveConflict("ComponentDependency", entry.DependencyId.ToString(), entry, dbDep);
+                if (action is ConflictAction.Skip or ConflictAction.AlwaysSkip)
+                {
+                    _dependencyIdMap[entry.DependencyId] = dbDep.DependencyId;
+                    continue;
+                }
+                if (action is ConflictAction.Update or ConflictAction.AlwaysUpdate)
+                {
+                    if (!_dryRun)
+                    {
+                        var dep = await _db.ComponentDependencies.FindAsync([entry.DependencyId], ct);
+                        dep?.Update(
+                            Enum.Parse<Domain.Enums.DependencyType>(entry.DependencyType, true),
+                            Enum.Parse<Domain.Enums.Criticality>(entry.Criticality, true),
+                            Enum.Parse<Domain.Enums.DependencyStatus>(entry.Status, true),
+                            entry.Description);
+                    }
+                    _dependencyIdMap[entry.DependencyId] = dbDep.DependencyId;
+                }
             }
             else
             {
@@ -572,22 +591,29 @@ public class EfSyncService : ISyncService
 
         foreach (var entry in entries)
         {
-            if (existingIds.Contains(entry.TraceEventId)) continue;
-
-            if (!_dryRun)
+            if (existingIds.Contains(entry.TraceEventId))
             {
-                var remappedDependencyId = _dependencyIdMap.GetValueOrDefault(entry.DependencyId, entry.DependencyId);
-                var traceEvent = new DependencyTraceEvent(
-                    remappedDependencyId,
-                    Enum.Parse<Domain.Enums.DependencyTraceEventType>(entry.EventType, true),
-                    entry.Description,
-                    entry.IssueId,
-                    entry.KnowledgeId,
-                    entry.RitmNumber,
-                    entry.ChangeNumber,
-                    entry.CreatedByUserId,
-                    entry.TraceEventId);
-                _db.DependencyTraceEvents.Add(traceEvent);
+                var dbEvent = existing.First(e => e.TraceEventId == entry.TraceEventId);
+                var action = ResolveConflict("DependencyTraceEvent", entry.TraceEventId.ToString(), entry, dbEvent);
+                if (action is ConflictAction.Skip or ConflictAction.AlwaysSkip) continue;
+            }
+            else
+            {
+                if (!_dryRun)
+                {
+                    var remappedDependencyId = _dependencyIdMap.GetValueOrDefault(entry.DependencyId, entry.DependencyId);
+                    var traceEvent = new DependencyTraceEvent(
+                        remappedDependencyId,
+                        Enum.Parse<Domain.Enums.DependencyTraceEventType>(entry.EventType, true),
+                        entry.Description,
+                        entry.IssueId,
+                        entry.KnowledgeId,
+                        entry.RitmNumber,
+                        entry.ChangeNumber,
+                        entry.CreatedByUserId,
+                        entry.TraceEventId);
+                    _db.DependencyTraceEvents.Add(traceEvent);
+                }
             }
         }
 
@@ -605,43 +631,58 @@ public class EfSyncService : ISyncService
 
         foreach (var entry in entries)
         {
-            if (existingIds.Contains(entry.KnowledgeId)) continue;
+            var remappedSystemId = _systemIdMap.GetValueOrDefault(entry.SystemId, entry.SystemId);
+            var remappedTypeId = _typeIdMap.GetValueOrDefault(entry.KnowledgeTypeId, entry.KnowledgeTypeId);
+            var remappedKsId = _ksIdMap.GetValueOrDefault(entry.KnowledgeStateId, entry.KnowledgeStateId);
+            var remappedIssueId = entry.IssueId.HasValue
+                ? _issueIdMap.GetValueOrDefault(entry.IssueId.Value, entry.IssueId.Value)
+                : (Guid?)null;
 
-            if (!_dryRun)
+            if (existingIds.Contains(entry.KnowledgeId))
             {
-                var remappedSystemId = _systemIdMap.GetValueOrDefault(entry.SystemId, entry.SystemId);
-                var remappedTypeId = _typeIdMap.GetValueOrDefault(entry.KnowledgeTypeId, entry.KnowledgeTypeId);
-                var remappedKsId = _ksIdMap.GetValueOrDefault(entry.KnowledgeStateId, entry.KnowledgeStateId);
-                var remappedIssueId = entry.IssueId.HasValue
-                    ? _issueIdMap.GetValueOrDefault(entry.IssueId.Value, entry.IssueId.Value)
-                    : (Guid?)null;
-
-                var knowledge = new Knowledge(
-                    entry.Title,
-                    entry.Summary,
-                    entry.Content,
-                    remappedSystemId,
-                    entry.CreatedByUserId,
-                    remappedTypeId,
-                    remappedKsId,
-                    remappedIssueId,
-                    entry.KnowledgeId);
-
-                if (entry.Tags.Count > 0)
+                var dbKnowledge = existing.First(k => k.KnowledgeId == entry.KnowledgeId);
+                var action = ResolveConflict("Knowledge", entry.KnowledgeId.ToString(), entry, dbKnowledge);
+                if (action is ConflictAction.Skip or ConflictAction.AlwaysSkip) continue;
+                if (action is ConflictAction.Update or ConflictAction.AlwaysUpdate)
                 {
-                    var allTags = await _db.KnowledgeTags.AsNoTracking().ToListAsync(ct);
-                    var tagMap = allTags.ToDictionary(t => t.TagName, t => t.KnowledgeTagId, StringComparer.OrdinalIgnoreCase);
-
-                    foreach (var tagName in entry.Tags)
+                    if (!_dryRun)
                     {
-                        if (tagMap.TryGetValue(tagName, out var tagId))
-                        {
-                            knowledge.KnowledgeKnowledgeTags.Add(new KnowledgeKnowledgeTag(entry.KnowledgeId, tagId));
-                        }
+                        var knowledge = await _db.Knowledges.FindAsync([entry.KnowledgeId], ct);
+                        knowledge?.Update(entry.Title, entry.Summary, entry.Content, remappedSystemId, remappedTypeId, remappedKsId, remappedIssueId);
                     }
                 }
+            }
+            else
+            {
+                if (!_dryRun)
+                {
+                    var knowledge = new Knowledge(
+                        entry.Title,
+                        entry.Summary,
+                        entry.Content,
+                        remappedSystemId,
+                        entry.CreatedByUserId,
+                        remappedTypeId,
+                        remappedKsId,
+                        remappedIssueId,
+                        entry.KnowledgeId);
 
-                _db.Knowledges.Add(knowledge);
+                    if (entry.Tags.Count > 0)
+                    {
+                        var allTags = await _db.KnowledgeTags.AsNoTracking().ToListAsync(ct);
+                        var tagMap = allTags.ToDictionary(t => t.TagName, t => t.KnowledgeTagId, StringComparer.OrdinalIgnoreCase);
+
+                        foreach (var tagName in entry.Tags)
+                        {
+                            if (tagMap.TryGetValue(tagName, out var tagId))
+                            {
+                                knowledge.KnowledgeKnowledgeTags.Add(new KnowledgeKnowledgeTag(entry.KnowledgeId, tagId));
+                            }
+                        }
+                    }
+
+                    _db.Knowledges.Add(knowledge);
+                }
             }
         }
 

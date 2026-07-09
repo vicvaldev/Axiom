@@ -137,9 +137,11 @@ internal static class SystemCommands
                     return;
                 }
 
+                var existingSystems = store.ReadAllAsync<JsonSystemEntry>("systems").Result;
+                var nextNegativeId = -1 - existingSystems.Count;
                 var jsonEntry = new JsonSystemEntry
                 {
-                    SystemId = 0,
+                    SystemId = nextNegativeId,
                     EAI = eai,
                     Name = name,
                     OwnerUserId = ownerUserId.Value

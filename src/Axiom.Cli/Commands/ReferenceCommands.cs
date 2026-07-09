@@ -114,7 +114,28 @@ internal static class ReferenceCommands
                     return;
                 }
 
-                CliOutput.WriteError("Database is not available.", json);
+                if (desc.Contains("knowledge types", StringComparison.OrdinalIgnoreCase))
+                {
+                    var entries = store.ReadAllAsync<Axiom.Application.Dtos.JsonKnowledgeTypeEntry>("knowledge-types").Result;
+                    var items = entries.Select(e => new Axiom.Application.Dtos.ReferenceCodeDto { Id = e.TypeId, Code = e.Code, Name = e.Name }).ToList();
+                    CliOutput.WriteReferenceList(items, json, "Id", "Code", "Name");
+                }
+                else if (desc.Contains("knowledge states", StringComparison.OrdinalIgnoreCase))
+                {
+                    var entries = store.ReadAllAsync<Axiom.Application.Dtos.JsonKnowledgeStateEntry>("knowledge-states").Result;
+                    var items = entries.Select(e => new Axiom.Application.Dtos.ReferenceCodeDto { Id = e.StateId, Code = e.Code, Name = e.Name }).ToList();
+                    CliOutput.WriteReferenceList(items, json, "Id", "Code", "Name");
+                }
+                else if (desc.Contains("issue states", StringComparison.OrdinalIgnoreCase))
+                {
+                    var entries = store.ReadAllAsync<Axiom.Application.Dtos.JsonIssueStateEntry>("issue-states").Result;
+                    var items = entries.Select(e => new Axiom.Application.Dtos.ReferenceCodeDto { Id = e.StateId, Code = e.Code, Name = e.Name }).ToList();
+                    CliOutput.WriteReferenceList(items, json, "Id", "Code", "Name");
+                }
+                else
+                {
+                    CliOutput.WriteError("Database is not available.", json);
+                }
             }
         });
 
@@ -217,12 +238,37 @@ internal static class ReferenceCommands
                 }
 
                 var dto = createDto(code, createName);
+                AssignNegativeId(store, entityName, dto);
                 store.AppendAsync(entityName, dto).Wait();
                 CliOutput.WriteError("Database is not available. Data saved locally.", json);
             }
         });
 
         return cmd;
+    }
+
+    private static void AssignNegativeId(Infrastructure.Persistence.JsonStore store, string entityName, object dto)
+    {
+        var existing = store.ReadAllAsync<object>(entityName).Result;
+        var count = existing.Count;
+
+        var nextId = -(count + 1);
+
+        switch (dto)
+        {
+            case Axiom.Application.Dtos.JsonKnowledgeTypeEntry kt:
+                kt.TypeId = nextId;
+                break;
+            case Axiom.Application.Dtos.JsonKnowledgeStateEntry ks:
+                ks.StateId = (int)nextId;
+                break;
+            case Axiom.Application.Dtos.JsonIssueStateEntry iss:
+                iss.StateId = (int)nextId;
+                break;
+            case Axiom.Application.Dtos.JsonKnowledgeTagEntry tag:
+                tag.KnowledgeTagId = nextId;
+                break;
+        }
     }
 
     private static Command CreateUpdateCmd(IHost host, string name, string desc,

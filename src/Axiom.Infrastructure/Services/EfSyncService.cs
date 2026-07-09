@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using Axiom.Application.Dtos;
 using Axiom.Application.Interfaces;
@@ -37,12 +38,23 @@ public class EfSyncService : ISyncService
             ? "DRY RUN mode - no changes will be made"
             : "Starting sync...");
 
-        _conflictResolver = dryRun
-            ? (info) => { Console.WriteLine($"  Conflict detected ({info.EntityType}: {info.Identifier}) — DRY RUN, would prompt"); return ConflictAction.Skip; }
-            : null;
+        if (dryRun)
+            _conflictResolver = (info) => { Console.WriteLine($"  Conflict detected ({info.EntityType}: {info.Identifier}) — DRY RUN, would prompt"); return ConflictAction.Skip; };
+        // else keep the existing _conflictResolver set via SetConflictResolver
 
         try
         {
+            var entityNames = new[] { "users", "knowledge-types", "knowledge-states", "issue-states", "knowledge-tags", "systems", "components", "issues", "dependencies", "trace-events", "knowledge" };
+            var anyData = false;
+            foreach (var name in entityNames)
+                if (await _store.ExistsAsync(name, ct)) { anyData = true; break; }
+
+            if (!anyData)
+            {
+                Console.WriteLine("No data files found. Nothing to sync.");
+                return true;
+            }
+
             await SyncUsers(ct);
             await SyncKnowledgeTypes(ct);
             await SyncKnowledgeStates(ct);
@@ -110,6 +122,8 @@ public class EfSyncService : ISyncService
                 if (!_dryRun)
                 {
                     var user = new User(entry.Email, entry.Name);
+                    typeof(User).GetProperty(nameof(User.UserId), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                        ?.SetValue(user, entry.UserId);
                     _db.Users.Add(user);
                 }
             }
@@ -128,15 +142,18 @@ public class EfSyncService : ISyncService
         var existingCodes = new HashSet<string>(existing.Select(t => t.Code), StringComparer.OrdinalIgnoreCase);
         var dbByCode = existing.ToDictionary(t => t.Code, StringComparer.OrdinalIgnoreCase);
 
+        var idx = 0;
         foreach (var entry in entries)
         {
+            idx++;
+            var key = entry.TypeId != 0 ? entry.TypeId : idx;
             if (existingCodes.Contains(entry.Code))
             {
                 var dbType = dbByCode[entry.Code];
                 var action = ResolveConflict("KnowledgeType", entry.Code, entry, dbType);
                 if (action is ConflictAction.Skip or ConflictAction.AlwaysSkip)
                 {
-                    _typeIdMap[entry.TypeId] = dbType.TypeId;
+                    _typeIdMap[key] = dbType.TypeId;
                     continue;
                 }
                 if (action is ConflictAction.Update or ConflictAction.AlwaysUpdate)
@@ -146,7 +163,7 @@ public class EfSyncService : ISyncService
                         var type = await _db.KnowledgeTypes.FindAsync([dbType.TypeId], ct);
                         type?.Update(entry.Code, entry.Name);
                     }
-                    _typeIdMap[entry.TypeId] = dbType.TypeId;
+                    _typeIdMap[key] = dbType.TypeId;
                 }
             }
             else
@@ -156,11 +173,11 @@ public class EfSyncService : ISyncService
                     var type = new KnowledgeType(entry.Code, entry.Name);
                     _db.KnowledgeTypes.Add(type);
                     await _db.SaveChangesAsync(ct);
-                    _typeIdMap[entry.TypeId] = type.TypeId;
+                    _typeIdMap[key] = type.TypeId;
                 }
                 else
                 {
-                    _typeIdMap[entry.TypeId] = entry.TypeId;
+                    _typeIdMap[key] = entry.TypeId;
                 }
             }
         }
@@ -178,15 +195,18 @@ public class EfSyncService : ISyncService
         var existingCodes = new HashSet<string>(existing.Select(s => s.Code), StringComparer.OrdinalIgnoreCase);
         var dbByCode = existing.ToDictionary(s => s.Code, StringComparer.OrdinalIgnoreCase);
 
+        var idx = 0;
         foreach (var entry in entries)
         {
+            idx++;
+            var key = entry.StateId != 0 ? entry.StateId : idx;
             if (existingCodes.Contains(entry.Code))
             {
                 var dbState = dbByCode[entry.Code];
                 var action = ResolveConflict("KnowledgeState", entry.Code, entry, dbState);
                 if (action is ConflictAction.Skip or ConflictAction.AlwaysSkip)
                 {
-                    _ksIdMap[entry.StateId] = dbState.StateId;
+                    _ksIdMap[key] = dbState.StateId;
                     continue;
                 }
                 if (action is ConflictAction.Update or ConflictAction.AlwaysUpdate)
@@ -196,7 +216,7 @@ public class EfSyncService : ISyncService
                         var state = await _db.KnowledgeStates.FindAsync([dbState.StateId], ct);
                         state?.Update(entry.Code, entry.Name);
                     }
-                    _ksIdMap[entry.StateId] = dbState.StateId;
+                    _ksIdMap[key] = dbState.StateId;
                 }
             }
             else
@@ -206,11 +226,11 @@ public class EfSyncService : ISyncService
                     var state = new KnowledgeState(entry.Code, entry.Name);
                     _db.KnowledgeStates.Add(state);
                     await _db.SaveChangesAsync(ct);
-                    _ksIdMap[entry.StateId] = state.StateId;
+                    _ksIdMap[key] = state.StateId;
                 }
                 else
                 {
-                    _ksIdMap[entry.StateId] = entry.StateId;
+                    _ksIdMap[key] = entry.StateId;
                 }
             }
         }
@@ -228,15 +248,18 @@ public class EfSyncService : ISyncService
         var existingCodes = new HashSet<string>(existing.Select(s => s.Code), StringComparer.OrdinalIgnoreCase);
         var dbByCode = existing.ToDictionary(s => s.Code, StringComparer.OrdinalIgnoreCase);
 
+        var idx = 0;
         foreach (var entry in entries)
         {
+            idx++;
+            var key = entry.StateId != 0 ? entry.StateId : idx;
             if (existingCodes.Contains(entry.Code))
             {
                 var dbState = dbByCode[entry.Code];
                 var action = ResolveConflict("IssueState", entry.Code, entry, dbState);
                 if (action is ConflictAction.Skip or ConflictAction.AlwaysSkip)
                 {
-                    _isIdMap[entry.StateId] = dbState.StateId;
+                    _isIdMap[key] = dbState.StateId;
                     continue;
                 }
                 if (action is ConflictAction.Update or ConflictAction.AlwaysUpdate)
@@ -246,7 +269,7 @@ public class EfSyncService : ISyncService
                         var state = await _db.IssueStates.FindAsync([dbState.StateId], ct);
                         state?.Update(entry.Code, entry.Name);
                     }
-                    _isIdMap[entry.StateId] = dbState.StateId;
+                    _isIdMap[key] = dbState.StateId;
                 }
             }
             else
@@ -256,11 +279,11 @@ public class EfSyncService : ISyncService
                     var state = new IssueState(entry.Code, entry.Name);
                     _db.IssueStates.Add(state);
                     await _db.SaveChangesAsync(ct);
-                    _isIdMap[entry.StateId] = state.StateId;
+                    _isIdMap[key] = state.StateId;
                 }
                 else
                 {
-                    _isIdMap[entry.StateId] = entry.StateId;
+                    _isIdMap[key] = entry.StateId;
                 }
             }
         }
@@ -278,15 +301,18 @@ public class EfSyncService : ISyncService
         var existingNames = new HashSet<string>(existing.Select(t => t.TagName), StringComparer.OrdinalIgnoreCase);
         var dbByName = existing.ToDictionary(t => t.TagName, StringComparer.OrdinalIgnoreCase);
 
+        var idx = 0;
         foreach (var entry in entries)
         {
+            idx++;
+            var key = entry.KnowledgeTagId != 0 ? entry.KnowledgeTagId : idx;
             if (existingNames.Contains(entry.TagName))
             {
                 var dbTag = dbByName[entry.TagName];
                 var action = ResolveConflict("KnowledgeTag", entry.TagName, entry, dbTag);
                 if (action is ConflictAction.Skip or ConflictAction.AlwaysSkip)
                 {
-                    _tagIdMap[entry.KnowledgeTagId] = dbTag.KnowledgeTagId;
+                    _tagIdMap[key] = dbTag.KnowledgeTagId;
                     continue;
                 }
                 if (action is ConflictAction.Update or ConflictAction.AlwaysUpdate)
@@ -296,7 +322,7 @@ public class EfSyncService : ISyncService
                         var tag = await _db.KnowledgeTags.FindAsync([dbTag.KnowledgeTagId], ct);
                         tag?.Update(entry.TagName);
                     }
-                    _tagIdMap[entry.KnowledgeTagId] = dbTag.KnowledgeTagId;
+                    _tagIdMap[key] = dbTag.KnowledgeTagId;
                 }
             }
             else
@@ -306,11 +332,11 @@ public class EfSyncService : ISyncService
                     var tag = new KnowledgeTag(entry.TagName);
                     _db.KnowledgeTags.Add(tag);
                     await _db.SaveChangesAsync(ct);
-                    _tagIdMap[entry.KnowledgeTagId] = tag.KnowledgeTagId;
+                    _tagIdMap[key] = tag.KnowledgeTagId;
                 }
                 else
                 {
-                    _tagIdMap[entry.KnowledgeTagId] = entry.KnowledgeTagId;
+                    _tagIdMap[key] = entry.KnowledgeTagId;
                 }
             }
         }
@@ -416,10 +442,15 @@ public class EfSyncService : ISyncService
                         Enum.Parse<Domain.Enums.TargetEnvironment>(entry.Environment, true),
                         Enum.Parse<Domain.Enums.Criticality>(entry.Criticality, true),
                         remappedSystemId,
-                        entry.Description);
+                        entry.Description,
+                        entry.ComponentId);
                     _db.TechnicalComponents.Add(comp);
+                    _componentIdMap[entry.ComponentId] = comp.ComponentId;
                 }
-                _componentIdMap[entry.ComponentId] = entry.ComponentId;
+                else
+                {
+                    _componentIdMap[entry.ComponentId] = entry.ComponentId;
+                }
             }
         }
 
@@ -452,13 +483,14 @@ public class EfSyncService : ISyncService
                     {
                         var issue = await _db.Issues.FindAsync([entry.IssueId], ct);
                         var remappedSystemId = _systemIdMap.GetValueOrDefault(entry.SystemId, entry.SystemId);
+                        var remappedStateId = _isIdMap.GetValueOrDefault(entry.StateId, entry.StateId);
                         issue?.Update(
                             entry.Summary,
                             entry.Problem,
                             entry.Analysis,
                             entry.Resolution,
                             remappedSystemId,
-                            entry.StateId,
+                            remappedStateId,
                             entry.RitmNumber,
                             entry.IncidentNumber);
                     }
@@ -470,11 +502,12 @@ public class EfSyncService : ISyncService
                 if (!_dryRun)
                 {
                     var remappedSystemId = _systemIdMap.GetValueOrDefault(entry.SystemId, entry.SystemId);
+                    var remappedStateId = _isIdMap.GetValueOrDefault(entry.StateId, entry.StateId);
                     var issue = new Issue(
                         entry.Summary,
                         remappedSystemId,
                         entry.Problem,
-                        entry.StateId,
+                        remappedStateId,
                         entry.CreatedByUserId,
                         entry.Analysis,
                         entry.Resolution,

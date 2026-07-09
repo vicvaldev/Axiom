@@ -28,15 +28,22 @@ internal static class SyncCommands
         };
         syncCmd.Options.Add(dryRunOpt);
 
+        var yesOpt = new Option<bool>("--yes", "-y")
+        {
+            Description = "Auto-confirm all conflicts (Always Update)"
+        };
+        syncCmd.Options.Add(yesOpt);
+
         syncCmd.SetAction((ParseResult result) =>
         {
             using var scope = host.Services.CreateScope();
             var syncService = scope.ServiceProvider.GetRequiredService<ISyncService>();
             var dryRun = result.GetValue(dryRunOpt);
+            var yes = result.GetValue(yesOpt);
 
             if (syncService is EfSyncService efSync)
             {
-                efSync.SetConflictResolver(ResolveConflict);
+                efSync.SetConflictResolver(yes ? AlwaysUpdateResolver : ResolveConflict);
             }
 
             try
@@ -57,14 +64,19 @@ internal static class SyncCommands
         return syncCmd;
     }
 
+    private static ConflictAction AlwaysUpdateResolver(SyncConflictInfo info)
+    {
+        return ConflictAction.AlwaysUpdate;
+    }
+
     private static ConflictAction ResolveConflict(SyncConflictInfo info)
     {
         var localJson = JsonSerializer.Serialize(info.LocalEntry, JsonOptions);
         var dbJson = JsonSerializer.Serialize(info.DbEntry, JsonOptions);
 
-        AnsiConsole.MarkupLine($"[yellow]Conflict:[/] {info.EntityType} '{info.Identifier}' already exists in database.");
-        AnsiConsole.MarkupLine($"  [bold]Local:[/] {localJson}");
-        AnsiConsole.MarkupLine($"  [bold]DB:[/]    {dbJson}");
+        AnsiConsole.MarkupLine($"[yellow]Conflict:[/] {info.EntityType} '{Markup.Escape(info.Identifier)}' already exists in database.");
+        AnsiConsole.MarkupLine($"  [bold]Local:[/] {Markup.Escape(localJson)}");
+        AnsiConsole.MarkupLine($"  [bold]DB:[/]    {Markup.Escape(dbJson)}");
 
         var choice = AnsiConsole.Prompt(
             new SelectionPrompt<string>()

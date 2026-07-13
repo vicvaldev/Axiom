@@ -8,9 +8,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services
     .AddApplication()
     .AddInfrastructure(
-        Environment.GetEnvironmentVariable("AXIOM_CONNECTION_STRING")
-        ?? builder.Configuration.GetConnectionString("Axiom")
-        ?? "Server=localhost;Database=AXIOM;Integrated Security=True;TrustServerCertificate=True;");
+        builder.Configuration.GetConnectionString("Axiom")
+        ?? throw new InvalidOperationException(
+            "No se encontró la cadena de conexión 'Axiom' en appsettings.json. " +
+            "Agrega la sección ConnectionStrings:Axiom."));
 
 builder.Services.AddOpenApi();
 

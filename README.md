@@ -14,7 +14,8 @@
 | **Domain** | `Axiom.Domain` | Ninguna | Entidades (13), Value Objects, Excepciones, Enums (6) |
 | **Application** | `Axiom.Application` | Domain | Casos de uso CQRS (28 commands, 9 queries, 37 handlers), validación FluentValidation, interfaces de repositorio, DTOs de proyección |
 | **Infrastructure** | `Axiom.Infrastructure` | Application + Domain | Persistencia EF Core + SQL Server, migraciones, configuraciones por entidad, repositorios, startup service |
-| **Entrypoint** | `Axiom.Cli` | Application + Infrastructure | CLI con System.CommandLine + Spectre.Console + MediatR |
+| **Entrypoint CLI** | `Axiom.Cli` | Application + Infrastructure | CLI con System.CommandLine + Spectre.Console + MediatR |
+| **Entrypoint API** | `Axiom.Api` | Application + Infrastructure | REST API con ASP.NET Core Minimal APIs + OpenAPI |
 | **Test** | `Axiom.Integration.Tests` | Infrastructure | Tests de integración con EF Core InMemory (98 tests total) |
 
 ### Stack principal
@@ -25,6 +26,7 @@
 - **System.CommandLine 2** — parser de CLI
 - **Spectre.Console 0.57** — UI en terminal (tablas, paneles, prompts interactivos)
 - **EF Core 10 + SQL Server** — persistencia principal
+- **ASP.NET Core Minimal APIs + OpenAPI** — REST API
 - **xUnit + FluentAssertions + NSubstitute + Coverlet** — tests
 
 ---
@@ -51,13 +53,13 @@ Axiom está pensado para usarse como herramienta de consola instalada con
 
 ```bash
 dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
-dotnet tool install --global Axiom.Cli --version 1.4.0
+dotnet tool install --global Axiom.Cli --version 1.5.0
 ```
 
 Para actualizar una instalación existente:
 
 ```bash
-dotnet tool update --global Axiom.Cli --version 1.4.0
+dotnet tool update --global Axiom.Cli --version 1.5.0
 ```
 
 Una vez instalado globalmente, usa directamente el comando `axiom`:
@@ -129,6 +131,7 @@ dotnet tool uninstall --global Axiom.Cli
 | `knowledge-tag` | `create`, `update`, `delete`, `list` | Gestión de tags de conocimiento |
 | `component` | `add`, `list`, `show` | Gestión de componentes técnicos |
 | `dependency` | `add`, `list`, `impact`, `trace` | Gestión de dependencias y trazabilidad |
+| `sync` | — | Sincroniza almacén JSON local a la base de datos |
 
 Todos los comandos soportan `--json` para salida machine-readable.
 
@@ -989,6 +992,49 @@ axiom dependency impact --component <guid> --json
 axiom dependency trace --dependency <guid> --event-type Validated --description "Validado en PROD" --json
 ```
 
+### `sync` — Sincronizar almacén JSON local a la base de datos
+
+Sincroniza los datos del almacén JSON local (`~/.axiom/store/`) hacia la
+base de datos SQL Server. Procesa las entidades en orden de dependencia:
+users → knowledge-types → knowledge-states → issue-states → knowledge-tags
+→ systems → components → issues → dependencies → trace-events → knowledge.
+
+| Opción | Requerido | Tipo | Descripción |
+|---|---|---|---|
+| `--dry-run` | No | `bool` | Muestra qué se sincronizaría sin realizar cambios en la BD |
+| `--yes` / `-y` | No | `bool` | Resuelve todos los conflictos con "Always Update" (modo no-interactivo) |
+
+```bash
+axiom sync                  # Sincroniza con resolución interactiva de conflictos
+axiom sync --dry-run        # Preview sin modificar la BD
+axiom sync --yes            # Sincroniza resolviendo todos los conflictos como "Update"
+axiom sync --dry-run --json # Preview con salida machine-readable
+```
+
+**Resolución de conflictos:**
+
+Cuando una entidad ya existe en la BD (detectada por clave única: Email
+para usuarios, EAI para sistemas, Code para datos de referencia, GUID para
+knowledge/issues/components/dependencies), se presenta un menú interactivo
+con 4 opciones:
+
+1. **Skip** — Mantiene la versión de la BD, no actualiza.
+2. **Update** — Sobrescribe la versión de la BD con la del JSON local.
+3. **Always Skip** — Omite este conflicto y todos los siguientes.
+4. **Always Update** — Actualiza este conflicto y todos los siguientes.
+
+**Remapping de IDs:**
+
+El servicio asigna IDs negativos temporales en modo offline para evitar
+colisiones con IDs reales de BD. Durante la sincronización, mantiene
+diccionarios de mapeo para remapear todas las FK referenciadas (ej:
+`SystemId = -1` en JSON → `SystemId = 5` en BD).
+
+**Archiving:**
+
+Tras una sincronización exitosa (sin `--dry-run`), todos los archivos
+`*.json` del almacén se mueven a `archives/{yyyyMMddHHmmss}/`.
+
 ---
 
 ## 4. Modelo de Datos (13 entidades)
@@ -1140,7 +1186,7 @@ axiom dependency trace --dependency <guid> --event-type Validated --description 
 |---|---|---|
 | `Axiom.Domain.Tests` | 36 tests (Knowledge, Issue, TechnicalComponent, SystemComponent, ComponentDependency, DependencyTraceEvent) |
 | `Axiom.Application.Tests` | 10 tests (handlers con NSubstitute) |
-| `Axiom.Integration.Tests` | 28 tests (EF Core InMemory — startup service, reference data service, repositorios Knowledge, Issue, TechnicalComponent, ComponentDependency, DependencyTraceEvent) |
+| `Axiom.Integration.Tests` | 52 tests (EF Core InMemory — startup service, reference data service, repositorios Knowledge, Issue, TechnicalComponent, ComponentDependency, DependencyTraceEvent, sync service con conflict resolution y ID remapping) |
 
 ```bash
 dotnet test                              # Todos los tests
@@ -1170,16 +1216,137 @@ Tests de integración usan proveedor InMemory de EF Core con datos maestros seed
 # Compilar
 dotnet build                                          # Todos los proyectos
 dotnet build src/Axiom.Cli                            # Solo el CLI
+dotnet build src/Axiom.Api                            # Solo la API
 
 # Empaquetar como dotnet tool
 dotnet pack src/Axiom.Cli/Axiom.Cli.csproj -c Release
 # Output: artifacts/packages/Axiom.Cli.<version>.nupkg
 
 # Instalar/actualizar tool global
-dotnet tool install --global Axiom.Cli --version 1.4.0
-dotnet tool update --global Axiom.Cli --version 1.4.0
+dotnet tool install --global Axiom.Cli --version 1.5.0
+dotnet tool update --global Axiom.Cli --version 1.5.0
 
-# Usar
+# Ejecutar CLI
 axiom startup --demo
 axiom knowledge list
+
+# Ejecutar API REST (desarrollo)
+dotnet run --project src/Axiom.Api
+# → http://localhost:5264
+# → http://localhost:5264/openapi/v1.json (OpenAPI spec)
+```
+
+---
+
+## 10. REST API (`Axiom.Api`)
+
+API HTTP con ASP.NET Core Minimal APIs. Sin controllers — cada grupo de
+endpoints es un `static class` con un método de extensión `MapXxx()`
+sobre `RouteGroupBuilder`. OpenAPI habilitado via `AddOpenApi()`.
+
+### Ejecución
+
+```bash
+dotnet run --project src/Axiom.Api    # http://localhost:5264
+```
+
+### Endpoints
+
+#### Knowledge — `/api/knowledge`
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/knowledge` | Crea una entrada de conocimiento. Body: `CreateKnowledgeRequest`. Retorna 201. |
+| `PUT` | `/api/knowledge/{id}` | Actualiza por GUID. Body: `UpdateKnowledgeRequest`. Retorna 200 o 404. |
+| `GET` | `/api/knowledge` | Lista todas las entradas activas. |
+| `GET` | `/api/knowledge/{id}` | Detalle por GUID. Retorna 200 o 404. |
+| `GET` | `/api/knowledge/search?q=...` | Búsqueda full-text en título, resumen y contenido. |
+
+#### Issues — `/api/issues`
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/issues` | Crea un issue. Body: `CreateIssueRequest`. Retorna 201. |
+| `PUT` | `/api/issues/{id}` | Actualiza por GUID. Body: `UpdateIssueRequest`. Retorna 200 o 404. |
+| `GET` | `/api/issues` | Lista issues. Opcionalmente filtra por `?eai=...`. |
+| `GET` | `/api/issues/{id}` | Detalle por GUID. Retorna 200 o 404. |
+| `DELETE` | `/api/issues/{id}` | Elimina por GUID. Retorna `{ deleted: true, id }` o 404. |
+
+#### Users — `/api/users`
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/api/users` | Lista todos los usuarios. |
+| `POST` | `/api/users` | Crea un usuario. Body: `CreateUserRequest`. Retorna 201. |
+| `PUT` | `/api/users/{id}` | Actualiza por GUID. Body: `UpdateUserRequest`. Retorna 200 o 404. |
+| `DELETE` | `/api/users/{id}` | Elimina por GUID. Retorna `{ deleted: true, id }` o 404. |
+
+#### Systems — `/api/systems`
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/api/systems` | Lista todos los sistemas. |
+| `POST` | `/api/systems` | Crea un sistema. Body: `CreateSystemRequest`. Retorna 201. |
+| `PUT` | `/api/systems/{id}` | Actualiza por ID long. Body: `UpdateSystemRequest`. Retorna 200 o 404. |
+| `DELETE` | `/api/systems/{id}` | Elimina por ID long. Retorna `{ deleted: true, id }` o 404. |
+
+#### Components — `/api/components`
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/components` | Crea un componente técnico. Body: `CreateComponentRequest`. Validación de enums (ComponentType, Environment, Criticality). Retorna 201. |
+| `GET` | `/api/components?systemId=...` | Lista componentes por sistema. |
+| `GET` | `/api/components/{id}` | Detalle por GUID. Retorna 200 o 404. |
+
+#### Dependencies — `/api/dependencies`
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/dependencies` | Crea una dependencia. Body: `CreateDependencyRequest`. Validación de enums (DependencyType, Criticality, Status). Retorna 201. |
+| `GET` | `/api/dependencies?componentId=...` | Lista dependencias salientes de un componente. |
+| `GET` | `/api/dependencies/{id}/impact` | Lista componentes impactados por una dependencia. |
+| `POST` | `/api/dependencies/trace` | Registra evento de trazabilidad. Body: `CreateTraceEventRequest`. Retorna 201. |
+
+#### Reference Data — `/api/reference`
+
+CRUD para datos de referencia (4 sub-grupos):
+
+| Sub-grupo | Ruta | Campos |
+|---|---|---|
+| Knowledge Types | `/api/reference/knowledge-types` | `Code`, `Name` |
+| Knowledge States | `/api/reference/knowledge-states` | `Code`, `Name` |
+| Issue States | `/api/reference/issue-states` | `Code`, `Name` |
+| Knowledge Tags | `/api/reference/knowledge-tags` | `Name` |
+
+Cada sub-grupo expone: `GET /` (listar), `POST /` (crear 201),
+`PUT /{id}` (actualizar 200/404), `DELETE /{id}` (eliminar 200/404).
+
+### Middleware de errores
+
+Excepciones no capturadas se mapean a RFC 7807 Problem Details
+(`application/problem+json`):
+
+| Excepción | HTTP Status | Detalle |
+|---|---|---|
+| `DomainException` | 400 Bad Request | Mensaje de violación de regla de dominio |
+| `ValidationException` (FluentValidation) | 422 Unprocessable Entity | `errors` con lista de fallos de validación |
+| `KeyNotFoundException` | 404 Not Found | Mensaje de la excepción |
+| Cualquier otra `Exception` | 500 Internal Server Error | "An internal error occurred." (genérico) |
+
+### Estructura del proyecto
+
+```
+src/Axiom.Api/
+  Program.cs                              — Minimal hosting, DI, middleware, route mapping
+  Middleware/
+    ExceptionHandlingMiddleware.cs        — Global exception → Problem Details
+  ApiEndpoints/
+    KnowledgeEndpoints.cs                 — /api/knowledge
+    IssueEndpoints.cs                     — /api/issues
+    UserEndpoints.cs                      — /api/users
+    SystemEndpoints.cs                    — /api/systems
+    ComponentEndpoints.cs                 — /api/components
+    DependencyEndpoints.cs                — /api/dependencies
+    ReferenceEndpoints.cs                 — /api/reference/*
+  Dtos/Requests/                          — Records C# para request bodies
 ```

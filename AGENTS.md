@@ -59,7 +59,8 @@ dotnet run -- issue show <guid>
 ## Persistence
 
 - **EF Core only** (SQL Server via `AddInfrastructure(connectionString)`).
-- Design-time factory reads `AXIOM_CONNECTION_STRING` env var (fallback: `Server=localhost;Database=AXIOM;...`).
+- Connection string reads from `appsettings.json` (`ConnectionStrings:Axiom`), fallback to `DatabaseDefaults.ConnectionString` in Infrastructure.
+- Design-time factory reads directly from `appsettings.json` (no fallback).
 - Migrations at `src/Axiom.Infrastructure/Persistence/Migrations/`.
 
 ## Domain conventions

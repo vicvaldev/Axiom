@@ -5,6 +5,7 @@ using Axiom.Infrastructure.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Configuration;
 
 namespace Axiom.Integration.Tests;
 
@@ -21,8 +22,15 @@ public class SqlServerTests : IDisposable
 
     public SqlServerTests()
     {
-        var cs = Environment.GetEnvironmentVariable("AXIOM_CONNECTION_STRING")
-            ?? "Server=localhost;Database=AXIOM;Integrated Security=True;TrustServerCertificate=True;";
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", optional: true)
+            .Build();
+
+        var cs = configuration.GetConnectionString("Axiom")
+            ?? throw new InvalidOperationException(
+                "No se encontró la cadena de conexión 'Axiom' en appsettings.json. " +
+                "Agrega la sección ConnectionStrings:Axiom.");
 
         var options = new DbContextOptionsBuilder<AxiomDbContext>()
             .UseSqlServer(cs)

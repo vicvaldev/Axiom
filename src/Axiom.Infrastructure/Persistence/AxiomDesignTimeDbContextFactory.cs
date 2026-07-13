@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.Extensions.Configuration;
 
 namespace Axiom.Infrastructure.Persistence;
 
@@ -11,16 +12,15 @@ namespace Axiom.Infrastructure.Persistence;
 /// <see cref="AxiomDbContext"/> sin necesidad de que la aplicación esté en ejecución.
 /// </summary>
 /// <remarks>
-/// La cadena de conexión se obtiene de la variable de entorno <c>AXIOM_CONNECTION_STRING</c>.
-/// Si la variable no está definida, se utiliza una cadena de conexión por defecto que apunta a
-/// una instancia local de SQL Server con la base de datos <c>AXIOM</c> y autenticación integrada.
+/// La cadena de conexión se lee desde <c>appsettings.json</c> utilizando la clave
+/// <c>ConnectionStrings:Axiom</c>. Si el archivo o la clave no existen, se produce un error
+/// intencional para forzar la configuración explícita.
 /// </remarks>
 public class AxiomDesignTimeDbContextFactory : IDesignTimeDbContextFactory<AxiomDbContext>
 {
     /// <summary>
     /// Crea una nueva instancia de <see cref="AxiomDbContext"/> configurada para SQL Server,
-    /// leyendo la cadena de conexión desde la variable de entorno <c>AXIOM_CONNECTION_STRING</c>
-    /// o utilizando un valor predeterminado local.
+    /// leyendo la cadena de conexión desde <c>appsettings.json</c>.
     /// </summary>
     /// <param name="args">
     /// Argumentos de línea de comandos proporcionados por la herramienta de EF Core.
@@ -29,8 +29,15 @@ public class AxiomDesignTimeDbContextFactory : IDesignTimeDbContextFactory<Axiom
     /// <returns>Una instancia configurada de <see cref="AxiomDbContext"/> lista para usar.</returns>
     public AxiomDbContext CreateDbContext(string[] args)
     {
-        var connectionString = Environment.GetEnvironmentVariable("AXIOM_CONNECTION_STRING")
-            ?? "Server=localhost;Database=AXIOM;Integrated Security=True;TrustServerCertificate=True;";
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", optional: false)
+            .Build();
+
+        var connectionString = configuration.GetConnectionString("Axiom")
+            ?? throw new InvalidOperationException(
+                "No se encontró la cadena de conexión 'Axiom' en appsettings.json. " +
+                "Agrega la sección ConnectionStrings:Axiom.");
 
         var optionsBuilder = new DbContextOptionsBuilder<AxiomDbContext>();
         optionsBuilder.UseSqlServer(connectionString);

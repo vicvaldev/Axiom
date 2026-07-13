@@ -2,6 +2,7 @@
 using Axiom.Application;
 using Axiom.Cli.Commands;
 using Axiom.Infrastructure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -9,8 +10,10 @@ using Microsoft.Extensions.Logging;
 var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
 
-var connectionString = Environment.GetEnvironmentVariable("AXIOM_CONNECTION_STRING")
-    ?? "Server=localhost;Database=AXIOM;Integrated Security=True;TrustServerCertificate=True;";
+var connectionString = builder.Configuration.GetConnectionString("Axiom")
+    ?? throw new InvalidOperationException(
+        "No se encontró la cadena de conexión 'Axiom' en appsettings.json. " +
+        "Agrega la sección ConnectionStrings:Axiom.");
 
 builder.Services
     .AddApplication()

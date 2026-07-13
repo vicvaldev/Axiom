@@ -1,8 +1,10 @@
 using System.CommandLine;
 using System.CommandLine.Parsing;
+using System.Text.Json;
 using Axiom.Application.Interfaces;
 using Axiom.Cli.Helpers;
 using Axiom.Domain.Entities;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Spectre.Console;
@@ -43,6 +45,7 @@ internal static class StartupCommands
                         svc.SeedDemoDataAsync(ct).Wait();
                     });
                 AnsiConsole.MarkupLine("[bold green]Demo data initialized successfully![/]");
+                SaveUserConfig(host);
                 return;
             }
 
@@ -195,8 +198,38 @@ internal static class StartupCommands
             resultTable.AddRow("[green]Knowledge States[/]", totalKnowledgeStates.ToString());
             AnsiConsole.Write(resultTable);
             AnsiConsole.MarkupLine("[bold green]Reference data initialized successfully![/]");
+            SaveUserConfig(host);
         });
 
         return startupCmd;
+    }
+
+    private static void SaveUserConfig(IHost host)
+    {
+        var config = host.Services.GetRequiredService<IConfiguration>();
+        var cs = config["AXIOM_CONNECTION_STRING"] ?? config.GetConnectionString("Axiom");
+        if (cs is null) return;
+
+        var userConfigDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".axiom");
+        Directory.CreateDirectory(userConfigDir);
+
+        var userConfigPath = Path.Combine(userConfigDir, "appsettings.json");
+        if (File.Exists(userConfigPath))
+        {
+            var existing = File.ReadAllText(userConfigPath);
+            var doc = JsonDocument.Parse(existing);
+            if (doc.RootElement.TryGetProperty("ConnectionStrings", out var csProp)
+                && csProp.TryGetProperty("Axiom", out var axiomProp)
+                && axiomProp.GetString() == cs)
+            {
+                return;
+            }
+        }
+
+        var payload = new { ConnectionStrings = new { Axiom = cs } };
+        var options = new JsonSerializerOptions { WriteIndented = true };
+        File.WriteAllText(userConfigPath, JsonSerializer.Serialize(payload, options));
+        AnsiConsole.MarkupLine("[dim]Connection string saved to ~/.axiom/appsettings.json[/]");
     }
 }

@@ -38,13 +38,34 @@
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - SQL Server (local o remoto) — opcional si se usa solo el almacén JSON local
 
-### Variable de entorno
+### Configuración de conexión
 
-La conexión a BD se lee de `AXIOM_CONNECTION_STRING`. Si no está definida, se usa:
+Axiom resuelve la conexión a BD con una cadena de fallback de 3 niveles:
 
+| Prioridad | Fuente | Descripción |
+|---|---|---|
+| 1 | Variable de entorno `AXIOM_CONNECTION_STRING` | Override temporal, ideal para CI/CD y Docker |
+| 2 | `~/.axiom/appsettings.json` | Config persistente del usuario. Se crea automáticamente tras `axiom startup` |
+| 3 | CWD `appsettings.json` | Desarrollo — solo al ejecutar con `dotnet run` desde el proyecto |
+
+**Creación manual de `~/.axiom/appsettings.json`:**
+
+```json
+{
+  "ConnectionStrings": {
+    "Axiom": "Server=localhost;Database=AXIOM;Integrated Security=True;TrustServerCertificate=True;"
+  }
+}
 ```
-Server=localhost;Database=AXIOM;Integrated Security=True;TrustServerCertificate=True;
+
+**Variable de entorno (alternativa):**
+
+```bash
+set AXIOM_CONNECTION_STRING=Server=localhost;Database=AXIOM;Integrated Security=True;TrustServerCertificate=True;
 ```
+
+Al ejecutar `axiom startup` (interactivo o `--demo`), la connection string
+se guarda automáticamente en `~/.axiom/appsettings.json` para uso futuro.
 
 ### Instalación como dotnet tool global (recomendado)
 

@@ -10,10 +10,18 @@ using Microsoft.Extensions.Logging;
 var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
 
-var connectionString = builder.Configuration.GetConnectionString("Axiom")
+builder.Configuration.AddJsonFile(
+    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        ".axiom", "appsettings.json"),
+    optional: true, reloadOnChange: false);
+
+var connectionString = builder.Configuration["AXIOM_CONNECTION_STRING"]
+    ?? builder.Configuration.GetConnectionString("Axiom")
     ?? throw new InvalidOperationException(
-        "No se encontró la cadena de conexión 'Axiom' en appsettings.json. " +
-        "Agrega la sección ConnectionStrings:Axiom.");
+        "No se encontró la cadena de conexión. Opciones:\n" +
+        "  1. Variable de entorno AXIOM_CONNECTION_STRING\n" +
+        "  2. Archivo ~/.axiom/appsettings.json (ConnectionStrings:Axiom)\n" +
+        "  3. Archivo appsettings.json en el directorio actual");
 
 builder.Services
     .AddApplication()

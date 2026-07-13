@@ -145,6 +145,23 @@ Flujo recomendado cuando el usuario quiere registrar conocimiento:
 5. **Sugiere registrar dependencias del sistema** si aplica: después de crear el conocimiento, si el sistema tiene componentes técnicos, sugiere al usuario modelar las dependencias entre ellos con `axiom dependency add`.
 6. Responde con `knowledgeId`, título, sistema y estado.
 
+Flujo recomendado cuando el usuario pregunta por dependencias de un EAI o componente:
+1. Resuelve el sistema por EAI:
+   - `axiom system list --json` → filtra por el EAI proporcionado.
+   - Si no existe, informa y detiene el flujo.
+2. Lista los componentes técnicos del sistema:
+   - `axiom component list --system-id <ID> --json`
+   - Si no hay componentes, informa al usuario que aún no se han registrado componentes técnicos para ese sistema y sugiere crearlos con `axiom component add`.
+3. Para cada componente (o el que el usuario indique explícitamente), consulta sus dependencias:
+   a. Dependencias salientes (hacia dónde depende): `axiom dependency list --component <componentGuid> --json`
+   b. Dependencias entrantes (quién depende de él): `axiom dependency impact --component <componentGuid> --json`
+4. Si el usuario mencionó un componente específico (por nombre o GUID), enfócate solo en ese componente.
+5. Presenta los resultados en una tabla clara:
+   - Componente → Tipo de dependencia → Componente destino/origen → Criticidad → Estado
+   - Incluye también un resumen de impacto: "Si este componente falla, se afectan X componentes" (derivado de `dependency impact`).
+6. Si encuentra dependencias críticas o activas, sugiere registrar un issue de seguimiento o crear una knowledge entry sobre la relación.
+7. Si no hay dependencias registradas, sugiere al usuario modelarlas con `axiom dependency add`.
+
 Wizard interactivo (cuando una búsqueda no encuentra resultados):
 1. Informa al usuario que no hay resultados y pregunta si desea crear un **knowledge** o un **issue**.
 2. Si elige **knowledge**, ejecuta:
